@@ -1,0 +1,26 @@
+[project]
+name = "pano-sharp-studio"
+version = "0.2.0"
+description = "Prompt-to-equirectangular-panorama-to-Gaussian-splat app using GPT Image 2 and Apple SHARP."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastapi>=0.115.0",
+  "numpy>=1.26.4",
+  "openai>=1.86.0",
+  "pillow>=10.4.0",
+  "plyfile>=1.1",
+  "pydantic>=2.8.2",
+  "python-dotenv>=1.0.1",
+  "sharp",
+  "uvicorn[standard]>=0.30.0",
+]
+
+[project.scripts]
+pano-sharp = "app.cli:main"
+pano-sharp-doctor = "app.doctor:main"
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+sharp = { git = "https://github.com/apple/ml-sharp", rev = "1eaa046834b81852261262b41b0919f5c1efdd2e" }

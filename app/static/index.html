@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pano Sharp Studio</title>
+  <style>
+    :root {
+      --bg: #08111f;
+      --panel: rgba(9, 18, 31, 0.76);
+      --panel-strong: rgba(7, 15, 26, 0.92);
+      --line: rgba(255, 255, 255, 0.1);
+      --text: #edf4ff;
+      --muted: #9cb2cf;
+      --accent: #ffb067;
+      --accent-2: #8ce0d6;
+      --good: #9df4b6;
+      --bad: #ff9898;
+      --shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255, 176, 103, 0.22), transparent 28%),
+        radial-gradient(circle at top right, rgba(140, 224, 214, 0.16), transparent 24%),
+        linear-gradient(180deg, #08111f 0%, #0d1d34 55%, #07101a 100%);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    main { max-width: 1120px; margin: 0 auto; padding: 28px 18px 56px; }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .panel {
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+    .hero-copy h1 {
+      margin: 0 0 10px;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", ui-serif, serif;
+      font-size: clamp(2.4rem, 6vw, 4.2rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+    .eyebrow, .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      padding: 7px 12px;
+      color: var(--accent);
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 0.84rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .hero-copy p, .subtle, .check-detail, small { color: var(--muted); line-height: 1.58; }
+    .hero-copy .subtle { margin-top: 14px; }
+    .hero-copy strong { color: var(--text); }
+    .stack { display: grid; gap: 18px; }
+    .card-title {
+      margin: 0 0 10px;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", ui-serif, serif;
+      font-size: 1.45rem;
+      letter-spacing: -0.03em;
+    }
+    .setup-grid, .control-grid {
+      display: grid;
+      gap: 12px;
+    }
+    .setup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .control-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .inline-grid { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
+    .check {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .check-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .check-badge {
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .check-badge.ok {
+      color: #072511;
+      background: var(--good);
+    }
+    .check-badge.fail {
+      color: #2f0202;
+      background: var(--bad);
+    }
+    .commands {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    code.command {
+      display: inline-block;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--accent-2);
+    }
+    label {
+      display: block;
+      margin: 16px 0 8px;
+      font-weight: 700;
+      color: #f8fbff;
+    }
+    textarea, input, select {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 13px 14px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+      font: inherit;
+    }
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    button {
+      margin-top: 18px;
+      border: 0;
+      border-radius: 16px;
+      padding: 15px 18px;
+      font: inherit;
+      font-weight: 800;
+      color: #07101a;
+      background: linear-gradient(135deg, var(--accent), #ffd9a0);
+      cursor: pointer;
+      box-shadow: 0 20px 34px rgba(255, 176, 103, 0.24);
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    pre {
+      white-space: pre-wrap;
+      margin: 0;
+      padding: 16px;
+      border-radius: 18px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      color: #d8e6fb;
+      overflow: auto;
+    }
+    a { color: #ffd39c; }
+    .artifact {
+      padding: 14px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .artifact:first-child { border-top: 0; }
+    .preview {
+      margin-top: 18px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+    }
+    .viewer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .viewer-kicker {
+      color: var(--accent-2);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .viewer-help {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.45;
+    }
+    .viewer-raw-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.03);
+      color: #ffd39c;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .viewer-surface {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      min-height: 340px;
+      background:
+        radial-gradient(circle at center, rgba(102, 151, 255, 0.12), transparent 35%),
+        linear-gradient(180deg, #060b14 0%, #02060d 100%);
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+      outline: none;
+    }
+    .viewer-surface.is-dragging {
+      cursor: grabbing;
+    }
+    .viewer-surface:focus-visible {
+      box-shadow: inset 0 0 0 2px rgba(140, 224, 214, 0.65);
+    }
+    .viewer-canvas,
+    .viewer-canvas canvas,
+    .viewer-canvas img {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .viewer-canvas img {
+      object-fit: cover;
+    }
+    .viewer-overlay {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .viewer-status {
+      top: 16px;
+    }
+    .viewer-tip {
+      bottom: 16px;
+      justify-content: flex-start;
+    }
+    .viewer-controls {
+      top: 16px;
+      justify-content: flex-end;
+    }
+    .viewer-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(4, 10, 20, 0.72);
+      color: var(--text);
+      backdrop-filter: blur(10px);
+      line-height: 1.3;
+    }
+    .viewer-chip[hidden] {
+      display: none !important;
+    }
+    .viewer-chip.error {
+      color: #ffe4e4;
+      border-color: rgba(255, 152, 152, 0.4);
+      background: rgba(61, 10, 10, 0.78);
+    }
+    .viewer-button {
+      pointer-events: auto;
+      margin: 0;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: var(--text);
+      background: rgba(4, 10, 20, 0.72);
+      box-shadow: none;
+      backdrop-filter: blur(10px);
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+    .viewer-button:hover {
+      border-color: rgba(255, 211, 156, 0.42);
+      color: #ffd39c;
+    }
+    .viewer-surface:fullscreen {
+      width: 100vw;
+      height: 100vh;
+      min-height: 100vh;
+      aspect-ratio: auto;
+      border-radius: 0;
+      background: #000;
+    }
+    .viewer-surface:-webkit-full-screen {
+      width: 100vw;
+      height: 100vh;
+      min-height: 100vh;
+      aspect-ratio: auto;
+      border-radius: 0;
+      background: #000;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    @media (max-width: 920px) {
+      .hero, .meta, .setup-grid, .control-grid, .inline-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="panel hero-copy">
+      <span class="eyebrow">Pano -> SHARP -> World PLY</span>
+      <h1>Pano Sharp Studio</h1>
+      <p>Generate a seamless equirectangular panorama with <strong>GPT Image 2</strong>, fracture it into perspective views that <strong>Apple SHARP</strong> can understand, and splice the resulting Gaussian splat PLY files into one approximate world.</p>
+      <p class="subtle">This app is meant for local research and prototyping. The setup doctor on the right checks whether `uv`, SHARP, Torch, and your OpenAI key are lined up before you spend time waiting on a run that was never going to work.</p>
+    </div>
+    <div class="panel">
+      <h2 class="card-title">Setup Doctor</h2>
+      <div id="setupSummary" class="pill">Checking runtime...</div>
+      <div id="setupChecks" class="setup-grid" style="margin-top: 14px;"></div>
+      <div id="setupCommands" class="commands"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2 class="card-title">Generate A World</h2>
+    <p class="subtle">Default settings target a `3840x1920` panorama, which fits the published GPT Image 2 size constraints while preserving the 2:1 layout we want for equirectangular crops.</p>
+
+    <label for="existingJobId">Load existing run</label>
+    <div class="inline-grid">
+      <input id="existingJobId" placeholder="e3710d02dc37" />
+      <button id="loadRun" type="button">Load run</button>
+    </div>
+
+    <label for="prompt">Scene prompt</label>
+    <textarea id="prompt" placeholder="A candlelit observatory carved into a salt cliff above a bioluminescent sea, brass instruments, old maps, open dome roof, dense atmospheric detail, true 360 panorama"></textarea>
+
+    <label for="sourcePanoramaPath">Existing panorama path (optional)</label>
+    <input id="sourcePanoramaPath" placeholder="/Users/magos/dev/kumanday/pano-sharp-studio/runs/e3710d02dc37/panorama.png" />
+
+    <div class="control-grid">
+      <div>
+        <label for="size">Image size</label>
+        <input id="size" value="3840x1920" />
+      </div>
+      <div>
+        <label for="quality">Quality</label>
+        <select id="quality">
+          <option>low</option>
+          <option selected>medium</option>
+          <option>high</option>
+          <option>auto</option>
+        </select>
+      </div>
+      <div>
+        <label for="preset">Crop rig</label>
+        <select id="preset">
+          <option selected>sphere24</option>
+          <option>horizon8</option>
+        </select>
+      </div>
+      <div>
+        <label for="cropSize">Crop size</label>
+        <input id="cropSize" type="number" value="1024" min="512" max="2048" step="128" />
+      </div>
+    </div>
+
+    <button id="start">Generate splat world</button>
+
+    <div class="meta">
+      <div class="stack">
+        <h3 class="card-title">Job Status</h3>
+        <pre id="status">Idle</pre>
+      </div>
+      <div class="stack">
+        <h3 class="card-title">Artifacts</h3>
+        <div id="artifacts"></div>
+      </div>
+    </div>
+    <section id="preview" class="preview" hidden>
+      <div class="viewer-head">
+        <div>
+          <div class="viewer-kicker">Immersive Panorama</div>
+          <div class="viewer-help">Drag to look around. Arrow keys or W A S D also navigate once the viewer is active.</div>
+        </div>
+        <a id="viewerRawLink" class="viewer-raw-link" href="#" target="_blank" rel="noreferrer">Open raw panorama</a>
+      </div>
+      <div id="viewerSurface" class="viewer-surface" tabindex="0" aria-label="360 panorama viewer">
+        <div id="viewerCanvas" class="viewer-canvas"></div>
+        <div class="viewer-overlay viewer-status">
+          <div id="viewerLoading" class="viewer-chip" hidden>Loading immersive viewer...</div>
+          <div id="viewerError" class="viewer-chip error" hidden></div>
+        </div>
+        <div class="viewer-overlay viewer-controls">
+          <button id="fullscreenButton" class="viewer-button" type="button">Fullscreen</button>
+        </div>
+        <div class="viewer-overlay viewer-tip">
+          <div class="viewer-chip">Drag, Arrow keys, or W A S D</div>
+        </div>
+      </div>
+    </section>
+  </section>
+</main>
+<script type="module">
+const $ = (id) => document.getElementById(id);
+let timer = null;
+let panoramaViewer = null;
+let activePanoramaUrl = null;
+let panoramaLoadPromise = null;
+const viewerModulePromise = import('/static/panorama-viewer.js?v=4');
+
+function escapeHtml(text) {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function fileLink(jobId, relPath, label) {
+  return `<div class="artifact"><a href="/api/jobs/${jobId}/files/${relPath}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a><br><small>${escapeHtml(relPath)}</small></div>`;
+}
+
+function renderSetup(setup) {
+  $('setupSummary').textContent = setup.ready ? 'Runtime ready' : 'Runtime needs attention';
+  $('setupSummary').style.color = setup.ready ? '#9df4b6' : '#ffb067';
+
+  $('setupChecks').innerHTML = setup.checks.map((check) => `
+    <div class="check">
+      <div class="check-head">
+        <span>${escapeHtml(check.name)}</span>
+        <span class="check-badge ${check.ok ? 'ok' : 'fail'}">${check.ok ? 'ok' : 'fix'}</span>
+      </div>
+      <div class="check-detail">${escapeHtml(check.detail)}</div>
+    </div>
+  `).join('');
+
+  $('setupCommands').innerHTML = setup.recommended_commands
+    .map((command) => `<code class="command">${escapeHtml(command)}</code>`)
+    .join('');
+}
+
+async function loadSetup() {
+  const r = await fetch('/api/setup');
+  const setup = await r.json();
+  renderSetup(setup);
+}
+
+function setRunUrl(jobId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('job', jobId);
+  window.history.replaceState({}, '', url);
+}
+
+function fullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+async function requestFullscreen(element) {
+  if (element.requestFullscreen) {
+    return element.requestFullscreen();
+  }
+  if (element.webkitRequestFullscreen) {
+    return element.webkitRequestFullscreen();
+  }
+  throw new Error('Fullscreen is not available in this browser.');
+}
+
+async function exitFullscreen() {
+  if (document.exitFullscreen) {
+    return document.exitFullscreen();
+  }
+  if (document.webkitExitFullscreen) {
+    return document.webkitExitFullscreen();
+  }
+}
+
+function updateFullscreenState() {
+  const isFullscreen = fullscreenElement() === $('viewerSurface');
+  $('fullscreenButton').textContent = isFullscreen ? 'Exit fullscreen' : 'Fullscreen';
+  panoramaViewer?.setFullscreenMode(isFullscreen);
+  if (isFullscreen) {
+    $('viewerSurface').focus({ preventScroll: true });
+  }
+}
+
+function clearPreview() {
+  if (panoramaViewer) {
+    panoramaViewer.destroy();
+    panoramaViewer = null;
+  }
+  panoramaLoadPromise = null;
+  activePanoramaUrl = null;
+  $('viewerCanvas').replaceChildren();
+  $('viewerLoading').hidden = true;
+  $('viewerError').hidden = true;
+  $('viewerError').textContent = '';
+  $('preview').hidden = true;
+}
+
+async function renderPanoramaViewer(jobId, relPath) {
+  const panoramaUrl = `/api/jobs/${jobId}/files/${relPath}`;
+  $('preview').hidden = false;
+  $('viewerRawLink').href = panoramaUrl;
+
+  if (activePanoramaUrl === panoramaUrl && panoramaViewer) {
+    $('viewerLoading').hidden = true;
+    $('viewerError').hidden = true;
+    return;
+  }
+
+  if (activePanoramaUrl === panoramaUrl && panoramaLoadPromise) {
+    return panoramaLoadPromise;
+  }
+
+  if (panoramaViewer) {
+    panoramaViewer.destroy();
+    panoramaViewer = null;
+  }
+
+  activePanoramaUrl = panoramaUrl;
+  $('viewerCanvas').replaceChildren();
+  $('viewerLoading').hidden = false;
+  $('viewerError').hidden = true;
+  $('viewerError').textContent = '';
+
+  panoramaLoadPromise = (async () => {
+    try {
+      const { PanoramaViewer } = await viewerModulePromise;
+      panoramaViewer = new PanoramaViewer($('viewerCanvas'), {
+        onDraggingChange: (dragging) => {
+          $('viewerSurface').classList.toggle('is-dragging', dragging);
+        },
+      });
+      await panoramaViewer.load(panoramaUrl);
+      $('viewerLoading').hidden = true;
+      $('viewerSurface').focus({ preventScroll: true });
+    } catch (error) {
+      console.error(error);
+      panoramaViewer = null;
+      $('viewerCanvas').innerHTML = `<img src="${panoramaUrl}" alt="Generated panorama preview" />`;
+      $('viewerLoading').hidden = true;
+      $('viewerError').hidden = false;
+      $('viewerError').textContent = `Interactive viewer unavailable here: ${error?.message || 'unknown viewer error'}. Showing the flat panorama instead.`;
+    } finally {
+      panoramaLoadPromise = null;
+    }
+  })();
+
+  return panoramaLoadPromise;
+}
+
+async function poll(jobId) {
+  const r = await fetch(`/api/jobs/${jobId}`);
+  if (!r.ok) {
+    $('status').textContent = `Run ${jobId} not found`;
+    $('artifacts').innerHTML = '';
+    clearPreview();
+    throw new Error(`Run ${jobId} not found`);
+  }
+  const s = await r.json();
+  $('existingJobId').value = jobId;
+  setRunUrl(jobId);
+  $('status').textContent = JSON.stringify(s, null, 2);
+  const artifacts = s.artifacts || {};
+  $('artifacts').innerHTML = Object.entries(artifacts)
+    .map(([k, v]) => fileLink(jobId, v, k))
+    .join('');
+
+  if (artifacts.panorama) {
+    await renderPanoramaViewer(jobId, artifacts.panorama);
+  } else {
+    clearPreview();
+  }
+
+  if (s.state === 'complete' || s.state === 'failed') {
+    clearInterval(timer);
+    $('start').disabled = false;
+    await loadSetup();
+  }
+
+  return s;
+}
+
+async function loadExistingRun(jobId) {
+  const trimmed = jobId.trim();
+  if (!trimmed) {
+    return;
+  }
+  clearInterval(timer);
+  $('start').disabled = false;
+  const s = await poll(trimmed);
+  if (s.state !== 'complete' && s.state !== 'failed') {
+    timer = setInterval(() => poll(trimmed), 2500);
+  }
+}
+
+$('start').onclick = async () => {
+  $('start').disabled = true;
+  clearInterval(timer);
+  clearPreview();
+  $('artifacts').innerHTML = '';
+  $('status').textContent = 'Creating job...';
+  const sourcePanoramaPath = $('sourcePanoramaPath').value.trim();
+  const prompt = $('prompt').value.trim() || (sourcePanoramaPath ? `Imported panorama: ${sourcePanoramaPath.split('/').pop()}` : '');
+  if (!prompt) {
+    $('status').textContent = 'Enter a scene prompt or provide an existing panorama path.';
+    $('start').disabled = false;
+    return;
+  }
+  const body = {
+    prompt,
+    size: $('size').value,
+    quality: $('quality').value,
+    source_panorama_path: sourcePanoramaPath || null,
+    preset: $('preset').value,
+    crop_size: Number($('cropSize').value),
+    output_format: 'png',
+    merge: true
+  };
+  const r = await fetch('/api/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const s = await r.json();
+  $('status').textContent = JSON.stringify(s, null, 2);
+  timer = setInterval(() => poll(s.id), 2500);
+  poll(s.id);
+};
+
+$('loadRun').onclick = async () => {
+  try {
+    await loadExistingRun($('existingJobId').value);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+$('fullscreenButton').onclick = async () => {
+  try {
+    if (fullscreenElement() === $('viewerSurface')) {
+      await exitFullscreen();
+    } else {
+      await requestFullscreen($('viewerSurface'));
+    }
+  } catch (error) {
+    console.error(error);
+    $('viewerError').hidden = false;
+    $('viewerError').textContent = error?.message || 'Fullscreen is not available in this browser.';
+  }
+};
+
+document.addEventListener('fullscreenchange', updateFullscreenState);
+document.addEventListener('webkitfullscreenchange', updateFullscreenState);
+
+loadSetup();
+const params = new URLSearchParams(window.location.search);
+const initialJobId = params.get('job');
+if (initialJobId) {
+  loadExistingRun(initialJobId).catch((error) => console.error(error));
+}
+</script>
+</body>
+</html>
