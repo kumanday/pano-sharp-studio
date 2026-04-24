@@ -85,6 +85,7 @@ def merge_sharp_plys(
     """
     faces = _load_faces(face_json)
     centers = np.stack([_face_center(f) for f in faces], axis=0)
+    all_plys = sorted(ply_dir.rglob("*.ply"))
 
     merged_vertices = []
     comments: list[str] = []
@@ -94,7 +95,6 @@ def merge_sharp_plys(
         ply_path = _find_ply_for_face(ply_dir, face["name"])
         if ply_path is None:
             # Some SHARP versions may preserve only stem partially. Try same order fallback.
-            all_plys = sorted(ply_dir.rglob("*.ply"))
             if idx < len(all_plys):
                 ply_path = all_plys[idx]
             else:

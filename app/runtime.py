@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import copy
 import platform
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from .config import OPENAI_API_KEY, SHARP_BIN
+
+SETUP_CACHE_TTL_SECONDS = 15.0
+_setup_cache: tuple[float, dict] | None = None
 
 
 def _sharp_executable() -> str | None:
@@ -37,11 +42,15 @@ def _sharp_cli_check() -> tuple[bool, str]:
     if not executable:
         return False, f"{SHARP_BIN!r} is not installed yet"
 
-    proc = subprocess.run(
-        [executable, "--help"],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        proc = subprocess.run(
+            [executable, "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"`{executable} --help` timed out"
     if proc.returncode != 0:
         stderr = proc.stderr.strip() or proc.stdout.strip() or "unknown error"
         return False, f"`{executable} --help` failed: {stderr}"
@@ -49,7 +58,7 @@ def _sharp_cli_check() -> tuple[bool, str]:
     return True, f"CLI detected at {executable}"
 
 
-def get_setup_status() -> dict:
+def _compute_setup_status() -> dict:
     python_ok = sys.version_info[:2] == (3, 13)
     python_detail = (
         f"Python {platform.python_version()} matches SHARP's recommended 3.13 runtime"
@@ -84,3 +93,15 @@ def get_setup_status() -> dict:
         "checks": checks,
         "recommended_commands": recommended_commands,
     }
+
+
+def get_setup_status() -> dict:
+    global _setup_cache
+
+    now = time.monotonic()
+    if _setup_cache and now - _setup_cache[0] < SETUP_CACHE_TTL_SECONDS:
+        return copy.deepcopy(_setup_cache[1])
+
+    status = _compute_setup_status()
+    _setup_cache = (now, status)
+    return copy.deepcopy(status)
