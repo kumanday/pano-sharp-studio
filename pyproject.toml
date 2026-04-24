@@ -10,6 +10,7 @@ dependencies = [
   "pillow>=10.4.0",
   "plyfile>=1.1",
   "pydantic>=2.8.2",
+  "python-multipart>=0.0.20",
   "python-dotenv>=1.0.1",
   "sharp",
   "uvicorn[standard]>=0.30.0",
@@ -24,3 +25,6 @@ package = true
 
 [tool.uv.sources]
 sharp = { git = "https://github.com/apple/ml-sharp", rev = "1eaa046834b81852261262b41b0919f5c1efdd2e" }
+
+[tool.setuptools.packages.find]
+include = ["app*"]

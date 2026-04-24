@@ -13,9 +13,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Prompt-to-pano-to-splat pipeline")
     parser.add_argument("prompt", nargs="?")
     parser.add_argument("--size", default="3840x1920")
-    parser.add_argument("--quality", default="medium", choices=["low", "medium", "high", "auto"])
+    parser.add_argument("--quality", default="high", choices=["low", "medium", "high", "auto"])
     parser.add_argument("--output-format", default="png", choices=["png", "jpeg", "webp"])
     parser.add_argument("--source-panorama-path")
+    parser.add_argument("--reference-image-url", action="append", default=[])
+    parser.add_argument("--reference-image-path", action="append", default=[])
     parser.add_argument("--preset", default="sphere24", choices=["horizon8", "sphere24"])
     parser.add_argument("--crop-size", type=int, default=1024)
     parser.add_argument("--face-fov-deg", type=float, default=80.0)
@@ -35,6 +37,8 @@ def main() -> None:
         quality=args.quality,
         output_format=args.output_format,
         source_panorama_path=args.source_panorama_path,
+        reference_image_urls=args.reference_image_url,
+        reference_image_paths=args.reference_image_path,
         preset=args.preset,
         crop_size=args.crop_size,
         face_fov_deg=args.face_fov_deg,

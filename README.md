@@ -75,6 +75,16 @@ Open `http://localhost:8080`.
 uv run pano-sharp "A cozy futuristic AI research lab inside a glass geodesic dome on a rainy mountain night"
 ```
 
+Use `--reference-image-url` or `--reference-image-path` one or more times to guide GPT Image 2 with style, material, or composition references:
+
+```bash
+uv run pano-sharp \
+  "A candlelit observatory carved into a salt cliff above a bioluminescent sea" \
+  --quality high \
+  --reference-image-url https://example.com/brass-instruments.jpg \
+  --reference-image-path ./references/salt-cliff.png
+```
+
 ## Why the panorama is split
 
 Apple SHARP is built for single perspective images, not raw 2:1 equirectangular panoramas. Equirectangular images compress and distort content heavily near the poles, so feeding the panorama directly into SHARP is likely to produce unstable geometry.
@@ -100,14 +110,14 @@ Instead, this app:
 
 ## OpenAI image settings
 
-The app uses:
+The app defaults to `quality="high"` for less grainy panoramas:
 
 ```python
 client.images.generate(
     model="gpt-image-2",
     prompt=build_panorama_prompt(prompt),
     size="3840x1920",
-    quality="medium",
+    quality="high",
     output_format="png",
 )
 ```
@@ -118,6 +128,8 @@ client.images.generate(
 - both edges multiples of `16`
 - aspect ratio no more than `3:1`
 - total pixels between `655,360` and `8,294,400`
+
+If you provide reference images, the app downloads/uploads and normalizes them to PNG, then calls `client.images.edit(...)` with the same prompt, size, quality, and output format. References are only used when generating a new panorama; if `--source-panorama-path` or the UI's existing panorama field is set, the app imports that panorama directly.
 
 ## Implementation notes
 

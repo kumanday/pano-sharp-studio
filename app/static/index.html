@@ -79,6 +79,74 @@
     .setup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .control-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .inline-grid { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
+    .reference-tools {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+    .reference-dropzone {
+      min-height: 120px;
+      border: 1px dashed rgba(140, 224, 214, 0.34);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      display: grid;
+      align-content: center;
+      gap: 10px;
+    }
+    .reference-dropzone.is-over {
+      border-color: rgba(255, 211, 156, 0.72);
+      background: rgba(255, 176, 103, 0.08);
+    }
+    .reference-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .reference-file-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 32px;
+    }
+    .reference-file {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 7px 10px;
+      color: var(--text);
+      background: rgba(4, 10, 20, 0.48);
+      font-size: 0.9rem;
+    }
+    .reference-remove {
+      border: 0;
+      margin: 0;
+      padding: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      box-shadow: none;
+      color: #07101a;
+      background: var(--accent-2);
+      line-height: 18px;
+      font-size: 14px;
+    }
+    .secondary-button {
+      margin: 0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      padding: 10px 13px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: none;
+      font-size: 0.95rem;
+    }
     .check {
       border: 1px solid var(--line);
       border-radius: 18px;
@@ -327,7 +395,7 @@
       margin-top: 18px;
     }
     @media (max-width: 920px) {
-      .hero, .meta, .setup-grid, .control-grid, .inline-grid {
+      .hero, .meta, .setup-grid, .control-grid, .inline-grid, .reference-tools {
         grid-template-columns: 1fr;
       }
     }
@@ -366,6 +434,24 @@
     <label for="sourcePanoramaPath">Existing panorama path (optional)</label>
     <input id="sourcePanoramaPath" placeholder="/Users/magos/dev/kumanday/pano-sharp-studio/runs/e3710d02dc37/panorama.png" />
 
+    <div class="reference-tools">
+      <div>
+        <label for="referenceImageUrls">Reference image URLs (optional)</label>
+        <textarea id="referenceImageUrls" placeholder="https://example.com/style-reference.jpg&#10;https://example.com/material-reference.png"></textarea>
+      </div>
+      <div>
+        <label for="referenceImages">Reference image files (optional)</label>
+        <div id="referenceDropzone" class="reference-dropzone">
+          <div class="reference-actions">
+            <span class="subtle">Drop images here or select files.</span>
+            <button id="selectReferenceImages" class="secondary-button" type="button">Select files</button>
+          </div>
+          <div id="referenceFileList" class="reference-file-list"></div>
+          <input id="referenceImages" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden />
+        </div>
+      </div>
+    </div>
+
     <div class="control-grid">
       <div>
         <label for="size">Image size</label>
@@ -375,8 +461,8 @@
         <label for="quality">Quality</label>
         <select id="quality">
           <option>low</option>
-          <option selected>medium</option>
-          <option>high</option>
+          <option>medium</option>
+          <option selected>high</option>
           <option>auto</option>
         </select>
       </div>
@@ -435,6 +521,7 @@ let timer = null;
 let panoramaViewer = null;
 let activePanoramaUrl = null;
 let panoramaLoadPromise = null;
+let referenceFiles = [];
 const viewerModulePromise = import('/static/panorama-viewer.js?v=4');
 
 function escapeHtml(text) {
@@ -448,6 +535,26 @@ function escapeHtml(text) {
 
 function fileLink(jobId, relPath, label) {
   return `<div class="artifact"><a href="/api/jobs/${jobId}/files/${relPath}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a><br><small>${escapeHtml(relPath)}</small></div>`;
+}
+
+function renderReferenceFiles() {
+  if (!referenceFiles.length) {
+    $('referenceFileList').innerHTML = '<small>No files selected</small>';
+    return;
+  }
+
+  $('referenceFileList').innerHTML = referenceFiles.map((file, index) => `
+    <span class="reference-file">
+      ${escapeHtml(file.name)}
+      <button class="reference-remove" type="button" data-reference-index="${index}" aria-label="Remove ${escapeHtml(file.name)}">x</button>
+    </span>
+  `).join('');
+}
+
+function addReferenceFiles(files) {
+  const incoming = Array.from(files).filter((file) => file.type.startsWith('image/'));
+  referenceFiles = [...referenceFiles, ...incoming].slice(0, 16);
+  renderReferenceFiles();
 }
 
 function renderSetup(setup) {
@@ -637,21 +744,30 @@ $('start').onclick = async () => {
     $('start').disabled = false;
     return;
   }
-  const body = {
-    prompt,
-    size: $('size').value,
-    quality: $('quality').value,
-    source_panorama_path: sourcePanoramaPath || null,
-    preset: $('preset').value,
-    crop_size: Number($('cropSize').value),
-    output_format: 'png',
-    merge: true
-  };
-  const r = await fetch('/api/jobs', {
+  const body = new FormData();
+  body.append('prompt', prompt);
+  body.append('size', $('size').value);
+  body.append('quality', $('quality').value);
+  body.append('source_panorama_path', sourcePanoramaPath);
+  body.append('reference_image_urls', sourcePanoramaPath ? '' : $('referenceImageUrls').value);
+  body.append('preset', $('preset').value);
+  body.append('crop_size', String(Number($('cropSize').value)));
+  body.append('output_format', 'png');
+  body.append('merge', 'true');
+  if (!sourcePanoramaPath) {
+    referenceFiles.forEach((file) => body.append('reference_images', file, file.name));
+  }
+
+  const r = await fetch('/api/jobs/form', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body,
   });
+  if (!r.ok) {
+    const error = await r.json().catch(() => ({ detail: 'Job creation failed' }));
+    $('status').textContent = typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail, null, 2);
+    $('start').disabled = false;
+    return;
+  }
   const s = await r.json();
   $('status').textContent = JSON.stringify(s, null, 2);
   timer = setInterval(() => poll(s.id), 2500);
@@ -683,6 +799,33 @@ $('fullscreenButton').onclick = async () => {
 document.addEventListener('fullscreenchange', updateFullscreenState);
 document.addEventListener('webkitfullscreenchange', updateFullscreenState);
 
+$('selectReferenceImages').onclick = () => $('referenceImages').click();
+$('referenceImages').onchange = (event) => {
+  addReferenceFiles(event.target.files || []);
+  event.target.value = '';
+};
+$('referenceFileList').onclick = (event) => {
+  const removeButton = event.target.closest('[data-reference-index]');
+  if (!removeButton) {
+    return;
+  }
+  referenceFiles.splice(Number(removeButton.dataset.referenceIndex), 1);
+  renderReferenceFiles();
+};
+$('referenceDropzone').ondragover = (event) => {
+  event.preventDefault();
+  $('referenceDropzone').classList.add('is-over');
+};
+$('referenceDropzone').ondragleave = () => {
+  $('referenceDropzone').classList.remove('is-over');
+};
+$('referenceDropzone').ondrop = (event) => {
+  event.preventDefault();
+  $('referenceDropzone').classList.remove('is-over');
+  addReferenceFiles(event.dataTransfer.files || []);
+};
+
+renderReferenceFiles();
 loadSetup();
 const params = new URLSearchParams(window.location.search);
 const initialJobId = params.get('job');

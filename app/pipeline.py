@@ -10,6 +10,7 @@ from .equirect import equirect_to_perspective
 from .models import CreateJobRequest, JobState
 from .openai_images import generate_panorama
 from .ply_merge import merge_sharp_plys
+from .reference_images import prepare_reference_images, write_reference_manifest
 from .sharp_runner import run_sharp_predict
 from .store import add_artifact, job_dir, write_status
 
@@ -39,6 +40,7 @@ def run_job(job_id: str, req: CreateJobRequest, reporter: Reporter | None = None
     faces_dir = root / "faces"
     plys_dir = root / "sharp_plys"
     out_ply = root / "world.ply"
+    references_dir = root / "references"
 
     def report(message: str) -> None:
         if reporter:
@@ -51,7 +53,20 @@ def run_job(job_id: str, req: CreateJobRequest, reporter: Reporter | None = None
             report(message)
             _import_existing_panorama(req.source_panorama_path, pano_path)
         else:
-            message = "Generating equirectangular panorama with GPT Image 2"
+            reference_paths = prepare_reference_images(
+                existing_paths=req.reference_image_paths,
+                urls=req.reference_image_urls,
+                out_dir=references_dir,
+            )
+            if reference_paths:
+                write_reference_manifest(reference_paths, references_dir / "references.json")
+                add_artifact(job_id, "references_manifest", "references/references.json")
+
+            message = (
+                f"Generating equirectangular panorama with GPT Image 2 using {len(reference_paths)} reference image(s)"
+                if reference_paths
+                else "Generating equirectangular panorama with GPT Image 2"
+            )
             write_status(job_id, state=JobState.running.value, message=message)
             report(message)
             generate_panorama(
@@ -60,6 +75,7 @@ def run_job(job_id: str, req: CreateJobRequest, reporter: Reporter | None = None
                 size=req.size,
                 quality=req.quality,
                 output_format=req.output_format,
+                reference_image_paths=reference_paths,
             )
         add_artifact(job_id, "panorama", "panorama.png")
 
