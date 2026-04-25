@@ -15,6 +15,8 @@ class FaceSpec:
     yaw_deg: float
     pitch_deg: float
     fov_deg: float
+    focal_length_px: float
+    focal_length_35mm: int
     image_path: str
     world_from_camera: list[list[float]]
 
@@ -58,6 +60,21 @@ def _bilinear_sample(img: np.ndarray, u: np.ndarray, v: np.ndarray) -> np.ndarra
     return (top * (1 - dv) + bottom * dv).astype(np.uint8)
 
 
+def _focal_length_35mm_from_px(width: int, height: int, focal_px: float) -> int:
+    diagonal_px = math.sqrt(width * width + height * height)
+    diagonal_35mm = math.sqrt(36 * 36 + 24 * 24)
+    return max(1, round(focal_px * diagonal_35mm / diagonal_px))
+
+
+def _save_crop_with_focal_exif(crop: np.ndarray, crop_path: Path, focal_length_35mm: int) -> None:
+    exif = Image.Exif()
+    exif_ifd = exif.get_ifd(0x8769)
+    # SHARP only accepts focal length through EXIF when using its CLI.
+    exif_ifd[41989] = int(focal_length_35mm)  # FocalLengthIn35mmFilm
+    exif[0x8769] = exif_ifd
+    Image.fromarray(crop).save(crop_path, exif=exif)
+
+
 def equirect_to_perspective(
     panorama_path: Path,
     out_dir: Path,
@@ -84,6 +101,7 @@ def equirect_to_perspective(
     n = crop_size
     yy, xx = np.meshgrid(np.arange(n), np.arange(n), indexing="ij")
     focal = (n / 2.0) / math.tan(math.radians(fov_deg) / 2.0)
+    focal_35mm = _focal_length_35mm_from_px(n, n, focal)
     x_cam = (xx + 0.5 - n / 2.0) / focal
     y_cam = (yy + 0.5 - n / 2.0) / focal
     z_cam = np.ones_like(x_cam)
@@ -103,12 +121,14 @@ def equirect_to_perspective(
 
             name = f"yaw_{int(yaw):03d}_pitch_{int(pitch):+03d}".replace("+", "p").replace("-", "m")
             crop_path = out_dir / f"{name}.png"
-            Image.fromarray(crop).save(crop_path)
+            _save_crop_with_focal_exif(crop, crop_path, focal_35mm)
             specs.append(FaceSpec(
                 name=name,
                 yaw_deg=yaw,
                 pitch_deg=pitch,
                 fov_deg=fov_deg,
+                focal_length_px=focal,
+                focal_length_35mm=focal_35mm,
                 image_path=str(crop_path),
                 world_from_camera=R.tolist(),
             ))
