@@ -16471,27 +16471,62 @@ var Sf = class {
 	isMobile() {
 		return navigator.userAgent.includes("Mobi");
 	}
-};
-//#endregion
-//#region frontend/splat-viewer.js
-async function jf(e, t) {
-	let n = new Af({
+}, jf = Math.PI / 2 - .03, Mf = .035, Nf = .003;
+function Pf(e, t) {
+	let n = t.camera, r = 0, i = 0, a = !1, o = null, s = /* @__PURE__ */ new Set(), c = null, l = new K(), u = new ResizeObserver(() => {
+		n.aspect = e.clientWidth / e.clientHeight, n.updateProjectionMatrix(), t.forceRenderNextFrame();
+	});
+	e.tabIndex = 0;
+	function d() {
+		i = Math.max(-jf, Math.min(jf, i)), l.set(Math.sin(r) * Math.cos(i), -Math.sin(i), Math.cos(r) * Math.cos(i)), n.position.set(0, 0, 0), n.up.set(0, -1, 0), n.lookAt(l), t.forceRenderNextFrame();
+	}
+	function f() {
+		let e = !1;
+		(s.has("KeyA") || s.has("ArrowLeft")) && (r -= Mf, e = !0), (s.has("KeyD") || s.has("ArrowRight")) && (r += Mf, e = !0), (s.has("KeyW") || s.has("ArrowUp")) && (i += Mf, e = !0), (s.has("KeyS") || s.has("ArrowDown")) && (i -= Mf, e = !0), e && d(), c = s.size ? requestAnimationFrame(f) : null;
+	}
+	function p(e) {
+		[
+			"KeyW",
+			"KeyA",
+			"KeyS",
+			"KeyD",
+			"ArrowUp",
+			"ArrowLeft",
+			"ArrowDown",
+			"ArrowRight"
+		].includes(e.code) && (e.preventDefault(), s.add(e.code), c ||= requestAnimationFrame(f));
+	}
+	function m(e) {
+		s.delete(e.code);
+	}
+	function h(t) {
+		t.button === 0 && (a = !0, o = {
+			x: t.clientX,
+			y: t.clientY
+		}, e.setPointerCapture(t.pointerId), e.focus({ preventScroll: !0 }));
+	}
+	function g(e) {
+		if (!a || !o) return;
+		let t = e.clientX - o.x, n = e.clientY - o.y;
+		r += t * Nf, i += n * Nf, o = {
+			x: e.clientX,
+			y: e.clientY
+		}, d();
+	}
+	function _(t) {
+		a = !1, o = null, e.hasPointerCapture(t.pointerId) && e.releasePointerCapture(t.pointerId);
+	}
+	return e.addEventListener("keydown", p), e.addEventListener("keyup", m), e.addEventListener("pointerdown", h), e.addEventListener("pointermove", g), e.addEventListener("pointerup", _), e.addEventListener("pointercancel", _), u.observe(e), d(), () => {
+		e.removeEventListener("keydown", p), e.removeEventListener("keyup", m), e.removeEventListener("pointerdown", h), e.removeEventListener("pointermove", g), e.removeEventListener("pointerup", _), e.removeEventListener("pointercancel", _), u.disconnect(), c && cancelAnimationFrame(c);
+	};
+}
+async function Ff(e, t) {
+	let n = new ia(70, e.clientWidth / e.clientHeight, .02, 2e3);
+	n.position.set(0, 0, 0), n.up.set(0, -1, 0), n.lookAt(new K(0, 0, 1));
+	let r = new Af({
 		rootElement: e,
-		cameraUp: [
-			0,
-			1,
-			0
-		],
-		initialCameraPosition: [
-			0,
-			0,
-			6
-		],
-		initialCameraLookAt: [
-			0,
-			0,
-			0
-		],
+		camera: n,
+		useBuiltInControls: !1,
 		sharedMemoryForWorkers: !1,
 		gpuAcceleratedSort: !1,
 		integerBasedSort: !1,
@@ -16499,17 +16534,19 @@ async function jf(e, t) {
 		sceneRevealMode: Yd.Default,
 		logLevel: Xd.None
 	});
-	return await n.addSplatScene(t.url, {
+	await r.addSplatScene(t.url, {
 		format: fd.Splat,
 		progressiveLoad: !0,
 		showLoadingUI: !0,
 		splatAlphaRemovalThreshold: 1
-	}), n.start(), {
-		viewer: n,
+	}), r.start();
+	let i = Pf(e, r);
+	return e.focus({ preventScroll: !0 }), {
+		viewer: r,
 		async dispose() {
-			await n.dispose(), e.replaceChildren();
+			i(), await r.dispose(), e.replaceChildren();
 		}
 	};
 }
 //#endregion
-export { jf as mountSplatViewer };
+export { Ff as mountSplatViewer };

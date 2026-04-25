@@ -22,9 +22,9 @@ async function boot() {
     const assetUrl = `/api/jobs/${jobId}/files/${manifest.asset}`;
     status.textContent = `Loading ${manifest.splat_count?.toLocaleString?.() || 'full-fidelity'} splats...`;
 
-    const { mountSplatViewer } = await import('/static/dist/splat-viewer.js?v=2');
+    const { mountSplatViewer } = await import('/static/dist/splat-viewer.js?v=3');
     await mountSplatViewer(root, { url: assetUrl });
-    status.textContent = `Full-fidelity splat viewer: ${manifest.splat_count?.toLocaleString?.() || 'unknown'} splats`;
+    status.textContent = `Full-fidelity splat viewer: ${manifest.splat_count?.toLocaleString?.() || 'unknown'} splats. Drag or use W A S D / arrow keys.`;
   } catch (error) {
     console.error(error);
     status.classList.add('error');
