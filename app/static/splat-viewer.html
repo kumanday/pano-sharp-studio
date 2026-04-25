@@ -38,6 +38,27 @@
       max-width: min(720px, calc(100vw - 32px));
       pointer-events: none;
     }
+    .viewer-action {
+      position: fixed;
+      z-index: 6;
+      top: 18px;
+      right: 18px;
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #edf4ff;
+      background: rgba(4, 10, 20, 0.42);
+      backdrop-filter: blur(10px);
+      font: inherit;
+      font-size: 1.2rem;
+      line-height: 1;
+      opacity: 0.72;
+      cursor: pointer;
+    }
+    .viewer-action:hover {
+      opacity: 1;
+    }
     .chip {
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 999px;
@@ -62,6 +83,7 @@
   <div class="hud">
     <div id="status" class="chip" hidden></div>
   </div>
+  <button id="fullscreenToggle" class="viewer-action" type="button" aria-label="Enter full screen">⛶</button>
   <script type="module" src="/static/splat-viewer-page.js?v=3"></script>
 </body>
 </html>

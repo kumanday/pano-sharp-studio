@@ -43,9 +43,9 @@
       padding: 22px;
     }
     .hero-copy h1 {
-      margin: 0 0 10px;
+      margin: 0 0 12px;
       font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", ui-serif, serif;
-      font-size: clamp(2.4rem, 6vw, 4.2rem);
+      font-size: clamp(2.1rem, 4.5vw, 3.35rem);
       line-height: 0.95;
       letter-spacing: -0.04em;
     }
@@ -72,6 +72,16 @@
       font-size: 1.45rem;
       letter-spacing: -0.03em;
     }
+    .setup-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .setup-head .card-title {
+      margin: 0;
+    }
     .setup-grid, .control-grid {
       display: grid;
       gap: 12px;
@@ -86,7 +96,7 @@
       align-items: stretch;
     }
     .reference-dropzone {
-      min-height: 120px;
+      min-height: 128px;
       border: 1px dashed rgba(140, 224, 214, 0.34);
       border-radius: 16px;
       padding: 14px;
@@ -239,6 +249,16 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
       color: var(--accent-2);
     }
+    .check-command {
+      display: inline-block;
+      margin-top: 10px;
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.24);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--accent-2);
+      font-size: 0.82rem;
+    }
     label {
       display: block;
       margin: 16px 0 8px;
@@ -258,6 +278,54 @@
       min-height: 180px;
       resize: vertical;
       line-height: 1.5;
+    }
+    .compact-textarea {
+      min-height: 128px;
+    }
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .help-dot {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--accent-2);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 0.75rem;
+      cursor: help;
+    }
+    .help-dot::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      z-index: 10;
+      width: min(280px, 80vw);
+      transform: translateX(-50%) translateY(4px);
+      border: 1px solid rgba(140, 224, 214, 0.26);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: #dcecff;
+      background: rgba(4, 10, 20, 0.96);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.36);
+      font-size: 0.82rem;
+      font-weight: 500;
+      line-height: 1.35;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+    .help-dot:hover::after,
+    .help-dot:focus::after {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
     button {
       margin-top: 18px;
@@ -475,6 +543,19 @@
       border-color: rgba(255, 211, 156, 0.42);
       color: #ffd39c;
     }
+    .icon-button {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      padding: 0;
+      color: var(--text);
+      background: rgba(4, 10, 20, 0.42);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+      backdrop-filter: blur(10px);
+      font-size: 1.3rem;
+      line-height: 1;
+    }
     .splat-actions {
       display: flex;
       gap: 10px;
@@ -504,6 +585,28 @@
       background: linear-gradient(135deg, var(--accent-2), #d6fff8);
       text-decoration: none;
       box-shadow: 0 20px 34px rgba(140, 224, 214, 0.18);
+    }
+    .splat-actions [hidden] {
+      display: none !important;
+    }
+    .immersive-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: #02060d;
+    }
+    .immersive-overlay[hidden] {
+      display: none !important;
+    }
+    .immersive-root {
+      position: absolute;
+      inset: 0;
+      cursor: grab;
+      outline: none;
+      touch-action: none;
+    }
+    .immersive-root:active {
+      cursor: grabbing;
     }
     .splat-warning {
       margin-top: 12px;
@@ -547,22 +650,21 @@
 <main>
   <section class="hero">
     <div class="panel hero-copy">
-      <span class="eyebrow">Preview -> SHARP -> High-Fidelity Render</span>
       <h1>Pano Sharp Studio</h1>
       <p>Generate a seamless 360 preview with <strong>GPT Image 2</strong>, fracture it into perspective views that <strong>Apple SHARP</strong> can understand, and build one immersive high-fidelity render.</p>
-      <p class="subtle">This app is meant for local research and prototyping. The setup doctor on the right checks whether `uv`, SHARP, Torch, and your OpenAI key are lined up before you spend time waiting on a run that was never going to work.</p>
+      <p class="subtle">This app is meant for local research and prototyping. The setup doctor on the right checks whether `uv`, SHARP, Torch, and your OpenAI key are lined up.</p>
     </div>
     <div class="panel">
-      <h2 class="card-title">Setup Doctor</h2>
-      <div id="setupSummary" class="pill">Checking runtime...</div>
+      <div class="setup-head">
+        <h2 class="card-title">Setup Doctor</h2>
+        <div id="setupSummary" class="pill">Checking runtime...</div>
+      </div>
       <div id="setupChecks" class="setup-grid" style="margin-top: 14px;"></div>
-      <div id="setupCommands" class="commands"></div>
     </div>
   </section>
 
   <section class="panel">
     <h2 class="card-title">Generate A World</h2>
-    <p class="subtle">Default settings target a `3840x1920` 360 preview, which fits the published GPT Image 2 size constraints while preserving the 2:1 layout we want for equirectangular crops.</p>
 
     <div class="scene-browser">
       <div class="scene-browser-head">
@@ -583,7 +685,7 @@
     <div class="reference-tools">
       <div>
         <label for="referenceImageUrls">Reference image URLs (optional)</label>
-        <textarea id="referenceImageUrls" placeholder="https://example.com/style-reference.jpg&#10;https://example.com/material-reference.png"></textarea>
+        <textarea id="referenceImageUrls" class="compact-textarea" placeholder="https://example.com/style-reference.jpg&#10;https://example.com/material-reference.png"></textarea>
       </div>
       <div>
         <label for="referenceImages">Reference image files (optional)</label>
@@ -600,10 +702,6 @@
 
     <div class="control-grid">
       <div>
-        <label for="size">Image size</label>
-        <input id="size" value="3840x1920" />
-      </div>
-      <div>
         <label for="quality">Quality</label>
         <select id="quality">
           <option>low</option>
@@ -613,15 +711,21 @@
         </select>
       </div>
       <div>
-        <label for="preset">Crop rig</label>
+        <label for="preset" class="field-label">Crop rig <button class="help-dot" type="button" data-tooltip="How the 360 preview is split into perspective views before SHARP runs. sphere24 is slower but covers the full scene; horizon8 is faster and focuses around the horizon." aria-label="Crop rig help">?</button></label>
         <select id="preset">
           <option selected>sphere24</option>
           <option>horizon8</option>
         </select>
       </div>
       <div>
-        <label for="cropSize">Crop size</label>
-        <input id="cropSize" type="number" value="1024" min="512" max="2048" step="128" />
+        <label for="cropSize" class="field-label">Crop size <button class="help-dot" type="button" data-tooltip="Resolution of each perspective crop sent to SHARP. Larger values can improve detail but take more time and memory." aria-label="Crop size help">?</button></label>
+        <select id="cropSize">
+          <option>512</option>
+          <option>768</option>
+          <option selected>1024</option>
+          <option>1536</option>
+          <option>2048</option>
+        </select>
       </div>
     </div>
 
@@ -666,7 +770,6 @@
       <div class="viewer-head">
         <div>
           <div class="viewer-kicker">High-Fidelity Render</div>
-          <div class="viewer-help">One action runs SHARP if needed, then exports the browser-ready high-fidelity render.</div>
         </div>
       </div>
       <div style="padding: 18px;">
@@ -677,12 +780,15 @@
         <div class="splat-warning">Large worlds can create hundreds of MB of viewer data and may take time to generate and load.</div>
         <div class="splat-actions">
           <button id="prepareSplatViewer" type="button">Build high-fidelity render</button>
-          <a id="openSplatViewer" class="splat-open-link" href="#" target="_blank" rel="noreferrer" hidden>Open high-fidelity render</a>
+          <button id="openSplatViewer" class="splat-open-link" type="button" hidden>Open high-fidelity render</button>
         </div>
       </div>
     </section>
   </section>
 </main>
+<div id="immersiveOverlay" class="immersive-overlay" hidden>
+  <div id="immersiveRoot" class="immersive-root" tabindex="0"></div>
+</div>
 <script type="module" src="/static/app.js?v=3"></script>
 </body>
 </html>

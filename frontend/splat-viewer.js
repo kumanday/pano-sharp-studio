@@ -91,7 +91,7 @@ function attachPanoramaControls(rootElement, viewer) {
     }
     const dx = event.clientX - lastPointer.x;
     const dy = event.clientY - lastPointer.y;
-    yaw += dx * DRAG_SENSITIVITY;
+    yaw -= dx * DRAG_SENSITIVITY;
     pitch += dy * DRAG_SENSITIVITY;
     lastPointer = { x: event.clientX, y: event.clientY };
     applyCamera();

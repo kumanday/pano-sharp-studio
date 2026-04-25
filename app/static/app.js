@@ -7,8 +7,10 @@ let panoramaLoadPromise = null;
 let referenceFiles = [];
 let activeJobId = null;
 let viewerAssetTimer = null;
+let immersiveViewer = null;
 
 const viewerModulePromise = import('/static/panorama-viewer.js?v=4');
+const splatViewerModulePromise = import('/static/dist/splat-viewer.js?v=4');
 
 function escapeHtml(text) {
   return String(text ?? '')
@@ -129,12 +131,9 @@ function renderSetup(setup) {
         <span class="check-badge ${check.ok ? 'ok' : 'fail'}">${check.ok ? 'ok' : 'fix'}</span>
       </div>
       <div class="check-detail">${escapeHtml(check.detail)}</div>
+      ${check.name === 'Apple SHARP CLI' ? '<code class="check-command">uv run sharp --help</code>' : ''}
     </div>
   `).join('');
-
-  $('setupCommands').innerHTML = setup.recommended_commands
-    .map((command) => `<code class="command">${escapeHtml(command)}</code>`)
-    .join('');
 }
 
 async function loadSetup() {
@@ -179,6 +178,15 @@ function updateFullscreenState() {
   if (isFullscreen) {
     $('viewerSurface').focus({ preventScroll: true });
   }
+
+  if (!fullscreenElement() && !$('immersiveOverlay').hidden) {
+    closeImmersiveViewer({ exitFullscreen: false }).catch((error) => console.error(error));
+  }
+  window.setTimeout(() => {
+    if (!fullscreenElement() && !$('immersiveOverlay').hidden) {
+      closeImmersiveViewer({ exitFullscreen: false }).catch((error) => console.error(error));
+    }
+  }, 0);
 }
 
 function clearPreview() {
@@ -206,8 +214,59 @@ function clearViewerAssetPanel() {
   });
   $('prepareSplatViewer').disabled = false;
   $('prepareSplatViewer').textContent = 'Build high-fidelity render';
+  $('prepareSplatViewer').hidden = false;
   $('openSplatViewer').hidden = true;
-  $('openSplatViewer').href = '#';
+}
+
+async function loadViewerManifest(jobId) {
+  const response = await fetch(`/api/jobs/${jobId}/files/viewer/manifest.json`);
+  if (!response.ok) {
+    throw new Error('High-fidelity render is not ready yet.');
+  }
+  return response.json();
+}
+
+async function closeImmersiveViewer({ exitFullscreen: shouldExitFullscreen = true } = {}) {
+  $('immersiveOverlay').hidden = true;
+  $('immersiveOverlay').style.display = 'none';
+  $('immersiveOverlay').style.visibility = 'hidden';
+  $('immersiveRoot').replaceChildren();
+  const viewerToDispose = immersiveViewer;
+  immersiveViewer = null;
+
+  if (shouldExitFullscreen && fullscreenElement() === $('immersiveOverlay')) {
+    await exitFullscreen();
+  }
+  if (viewerToDispose) {
+    viewerToDispose.dispose().catch((error) => console.error(error));
+  }
+}
+
+async function openImmersiveViewer(jobId) {
+  $('immersiveOverlay').hidden = false;
+  $('immersiveOverlay').style.display = '';
+  $('immersiveOverlay').style.visibility = '';
+  $('immersiveRoot').replaceChildren();
+  $('immersiveRoot').focus({ preventScroll: true });
+
+  try {
+    if (fullscreenElement() !== $('immersiveOverlay')) {
+      await requestFullscreen($('immersiveOverlay'));
+    }
+  } catch (error) {
+    console.warn(error);
+  }
+
+  try {
+    const manifest = await loadViewerManifest(jobId);
+    const { mountSplatViewer } = await splatViewerModulePromise;
+    immersiveViewer = await mountSplatViewer($('immersiveRoot'), {
+      url: `/api/jobs/${jobId}/files/${manifest.asset}`,
+    });
+  } catch (error) {
+    console.error(error);
+    $('immersiveRoot').innerHTML = `<div class="viewer-chip error" style="position:absolute;left:18px;top:18px;">${escapeHtml(error?.message || 'Failed to load high-fidelity render.')}</div>`;
+  }
 }
 
 async function renderPanoramaViewer(jobId, relPath) {
@@ -339,8 +398,9 @@ function renderViewerAssetStatus(jobId, status) {
 
   $('prepareSplatViewer').disabled = preparing;
   $('prepareSplatViewer').textContent = failed ? 'Retry high-fidelity render build' : 'Build high-fidelity render';
+  $('prepareSplatViewer').hidden = ready;
   $('openSplatViewer').hidden = !ready;
-  $('openSplatViewer').href = ready ? `/viewer/${jobId}` : '#';
+  $('openSplatViewer').dataset.jobId = ready ? jobId : '';
   if (ready) {
     loadScenes().catch((error) => console.error(error));
   }
@@ -428,7 +488,7 @@ async function startJob() {
 
   const body = new FormData();
   body.append('prompt', prompt);
-  body.append('size', $('size').value);
+  body.append('size', '3840x1920');
   body.append('quality', $('quality').value);
   body.append('source_panorama_path', '');
   body.append('reference_image_urls', $('referenceImageUrls').value);
@@ -493,12 +553,23 @@ function bindEvents() {
   $('start').onclick = startJob;
   $('prepareSplatViewer').onclick = prepareViewerAssets;
   $('refreshScenes').onclick = () => loadScenes().catch((error) => console.error(error));
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !$('immersiveOverlay').hidden) {
+      closeImmersiveViewer().catch((error) => console.error(error));
+    }
+  });
   $('sceneGrid').onclick = (event) => {
     const card = event.target.closest('[data-scene-viewer]');
     if (!card) {
       return;
     }
-    window.open(card.dataset.sceneViewer, '_blank', 'noreferrer');
+    openImmersiveViewer(card.dataset.sceneViewer.split('/').pop()).catch((error) => console.error(error));
+  };
+  $('openSplatViewer').onclick = () => {
+    const jobId = $('openSplatViewer').dataset.jobId || activeJobId;
+    if (jobId) {
+      openImmersiveViewer(jobId).catch((error) => console.error(error));
+    }
   };
   $('fullscreenButton').onclick = async () => {
     try {

@@ -207,8 +207,8 @@ export class PanoramaViewer {
     this.lastPointerX = event.clientX;
     this.lastPointerY = event.clientY;
 
-    this.yaw += dx * DRAG_SENSITIVITY;
-    this.pitch = clampPitch(this.pitch - dy * DRAG_SENSITIVITY);
+    this.yaw -= dx * DRAG_SENSITIVITY;
+    this.pitch = clampPitch(this.pitch + dy * DRAG_SENSITIVITY);
     this.dirty = true;
   }
 

@@ -55,7 +55,7 @@ def _sharp_cli_check() -> tuple[bool, str]:
         stderr = proc.stderr.strip() or proc.stdout.strip() or "unknown error"
         return False, f"`{executable} --help` failed: {stderr}"
 
-    return True, f"CLI detected at {executable}"
+    return True, "CLI detected"
 
 
 def _compute_setup_status() -> dict:

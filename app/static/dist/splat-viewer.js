@@ -13460,10 +13460,10 @@ var ud = class e {
                 padding: 15px;
                 background: #07e8d6;
                 z-index:99999;
-
+            
                 aspect-ratio: 1;
                 border-radius: 50%;
-                --_m:
+                --_m: 
                     conic-gradient(#0000,#000),
                     linear-gradient(#000 0 0) content-box;
                 -webkit-mask: var(--_m);
@@ -13531,7 +13531,7 @@ var ud = class e {
             .messageContainerMin${this.elementID} {
                 padding-top: 15px;
             }
-
+            
             @keyframes load {
                 to{transform: rotate(1turn)}
             }
@@ -14060,7 +14060,7 @@ var ud = class e {
 
         mat3 quaternionToRotationMatrix(float x, float y, float z, float w) {
             float s = 1.0 / sqrt(w * w + x * x + y * y + z * z);
-
+        
             return mat3(
                 1. - 2. * (y * y + z * z),
                 2. * (x * y + w * z),
@@ -16508,7 +16508,7 @@ function Pf(e, t) {
 	function g(e) {
 		if (!a || !o) return;
 		let t = e.clientX - o.x, n = e.clientY - o.y;
-		r += t * Nf, i += n * Nf, o = {
+		r -= t * Nf, i += n * Nf, o = {
 			x: e.clientX,
 			y: e.clientY
 		}, d();
