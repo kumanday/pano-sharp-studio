@@ -60,6 +60,14 @@ class ViewerAssetStatus(BaseModel):
     manifest: dict[str, str | int | float] = Field(default_factory=dict)
 
 
+class SceneSummary(BaseModel):
+    id: str
+    prompt: str = ""
+    thumbnail: str = ""
+    viewer_url: str
+    manifest: dict[str, str | int | float] = Field(default_factory=dict)
+
+
 class SetupCheck(BaseModel):
     name: str
     ok: bool

@@ -13,6 +13,7 @@ from .ply_merge import merge_sharp_plys
 from .reference_images import prepare_reference_images, write_reference_manifest
 from .sharp_runner import run_sharp_predict
 from .store import add_artifact, job_dir, write_status
+from .thumbnails import THUMBNAIL_REL_PATH, ensure_preview_thumbnail
 
 Reporter = Callable[[str], None]
 
@@ -47,7 +48,7 @@ def _build_world_from_panorama(
     merge: bool,
     report: Reporter,
 ) -> None:
-    message = "Splitting panorama into perspective crops"
+    message = "Splitting preview into perspective crops"
     write_status(job_id, state=JobState.running.value, message=message)
     report(message)
     equirect_to_perspective(
@@ -104,9 +105,9 @@ def run_job(job_id: str, req: CreateJobRequest, reporter: Reporter | None = None
                 add_artifact(job_id, "references_manifest", "references/references.json")
 
             message = (
-                f"Generating equirectangular panorama with GPT Image 2 using {len(reference_paths)} reference image(s)"
+                f"Generating 360 preview with GPT Image 2 using {len(reference_paths)} reference image(s)"
                 if reference_paths
-                else "Generating equirectangular panorama with GPT Image 2"
+                else "Generating 360 preview with GPT Image 2"
             )
             write_status(job_id, state=JobState.running.value, message=message)
             report(message)
@@ -119,9 +120,11 @@ def run_job(job_id: str, req: CreateJobRequest, reporter: Reporter | None = None
                 reference_image_paths=reference_paths,
             )
         add_artifact(job_id, "panorama", "panorama.png")
+        if ensure_preview_thumbnail(root):
+            add_artifact(job_id, "preview_thumbnail", THUMBNAIL_REL_PATH)
 
         if not req.run_reconstruction:
-            message = "Panorama ready. Build the Gaussian splat world when you are happy with it."
+            message = "Preview ready. Build the high-fidelity render when you are happy with it."
             write_status(job_id, state=JobState.complete.value, message=message)
             report(message)
             return

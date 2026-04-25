@@ -62,7 +62,7 @@ def _ready_status(job_id: str) -> dict[str, Any]:
     return {
         "state": "ready",
         "stage": "ready",
-        "message": "Full-fidelity splat viewer asset is ready.",
+        "message": "High-fidelity render is ready.",
         "artifacts": {
             "viewer_splat": SPLAT_REL_PATH,
             "viewer_manifest": MANIFEST_REL_PATH,
@@ -83,7 +83,7 @@ def get_viewer_asset_status(job_id: str) -> dict[str, Any]:
         return {
             "state": "missing",
             "stage": "splat",
-            "message": "world.ply exists. Build the full-fidelity viewer to export the browser .splat asset.",
+            "message": "World geometry exists. Build the browser-ready high-fidelity render.",
             "artifacts": {},
         }
 
@@ -91,14 +91,14 @@ def get_viewer_asset_status(job_id: str) -> dict[str, Any]:
         return {
             "state": "missing",
             "stage": "world",
-            "message": "Panorama is ready. Build the full-fidelity viewer to run SHARP, merge world.ply, and export .splat.",
+            "message": "Preview is ready. Build the high-fidelity render when you like the scene.",
             "artifacts": {},
         }
 
     return {
         "state": "missing",
         "stage": "missing",
-        "message": "panorama.png is not available for this job yet.",
+        "message": "Preview is not available for this job yet.",
         "artifacts": {},
     }
 
@@ -115,7 +115,7 @@ def build_viewer_assets(job_id: str) -> None:
             job_id,
             state="preparing",
             stage="splat",
-            message="Converting world.ply to full-fidelity .splat.",
+            message="Exporting browser-ready high-fidelity render.",
             artifacts={},
         )
 
@@ -125,8 +125,8 @@ def build_viewer_assets(job_id: str) -> None:
                 state="preparing",
                 stage="splat",
                 message=(
-                    f"Converting world.ply to .splat: {progress['percent']}% "
-                    f"({progress['processed']:,}/{progress['total']:,} splats)"
+                    f"Exporting high-fidelity render: {progress['percent']}% "
+                    f"({progress['processed']:,}/{progress['total']:,} render points)"
                 ),
                 progress=progress,
                 artifacts={},
@@ -139,7 +139,7 @@ def build_viewer_assets(job_id: str) -> None:
             job_id,
             state="ready",
             stage="ready",
-            message=f"Full-fidelity splat viewer asset is ready ({manifest['asset_bytes']:,} bytes).",
+            message=f"High-fidelity render is ready ({manifest['asset_bytes']:,} bytes).",
             artifacts={
                 "viewer_splat": SPLAT_REL_PATH,
                 "viewer_manifest": MANIFEST_REL_PATH,
@@ -166,7 +166,7 @@ def build_full_fidelity_viewer(job_id: str, world_req: BuildWorldRequest) -> Non
                 job_id,
                 state="preparing",
                 stage="world",
-                message="Building Gaussian splat world with Apple SHARP.",
+                message="Building high-fidelity world with Apple SHARP.",
                 artifacts={},
                 progress={},
             )
@@ -211,13 +211,13 @@ def start_viewer_asset_job(
         return current
 
     if not _world_ply_path(job_id).exists() and not _panorama_path(job_id).exists():
-        raise HTTPException(status_code=400, detail="panorama.png is not available for this job yet.")
+        raise HTTPException(status_code=400, detail="Preview is not available for this job yet.")
 
     stage = "splat" if _world_ply_path(job_id).exists() else "world"
     message = (
-        "Queued full-fidelity .splat conversion."
+        "Queued high-fidelity render export."
         if stage == "splat"
-        else "Queued full-fidelity viewer build. SHARP/world.ply will run first, then .splat export."
+        else "Queued high-fidelity render build. SHARP will run first, then the browser-ready render export."
     )
 
     status = _write_viewer_status(

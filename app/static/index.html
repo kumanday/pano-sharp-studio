@@ -147,6 +147,55 @@
       box-shadow: none;
       font-size: 0.95rem;
     }
+    .scene-browser {
+      margin: 18px 0 24px;
+      border: 1px solid rgba(140, 224, 214, 0.16);
+      border-radius: 20px;
+      padding: 16px;
+      background: rgba(140, 224, 214, 0.045);
+    }
+    .scene-browser-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .scene-browser-title {
+      color: var(--accent-2);
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .scene-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .scene-card {
+      display: block;
+      width: 100%;
+      margin: 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px;
+      padding: 8px;
+      color: var(--text);
+      background: rgba(4, 10, 20, 0.56);
+      box-shadow: none;
+      line-height: 0;
+    }
+    .scene-card:hover {
+      border-color: rgba(255, 211, 156, 0.42);
+      transform: translateY(-1px);
+    }
+    .scene-card img {
+      width: 100%;
+      aspect-ratio: 2 / 1;
+      border-radius: 12px;
+      object-fit: cover;
+      background: #040a14;
+    }
     .check {
       border: 1px solid var(--line);
       border-radius: 18px;
@@ -498,9 +547,9 @@
 <main>
   <section class="hero">
     <div class="panel hero-copy">
-      <span class="eyebrow">Pano -> SHARP -> World PLY</span>
+      <span class="eyebrow">Preview -> SHARP -> High-Fidelity Render</span>
       <h1>Pano Sharp Studio</h1>
-      <p>Generate a seamless equirectangular panorama with <strong>GPT Image 2</strong>, fracture it into perspective views that <strong>Apple SHARP</strong> can understand, and splice the resulting Gaussian splat PLY files into one approximate world.</p>
+      <p>Generate a seamless 360 preview with <strong>GPT Image 2</strong>, fracture it into perspective views that <strong>Apple SHARP</strong> can understand, and build one immersive high-fidelity render.</p>
       <p class="subtle">This app is meant for local research and prototyping. The setup doctor on the right checks whether `uv`, SHARP, Torch, and your OpenAI key are lined up before you spend time waiting on a run that was never going to work.</p>
     </div>
     <div class="panel">
@@ -513,19 +562,23 @@
 
   <section class="panel">
     <h2 class="card-title">Generate A World</h2>
-    <p class="subtle">Default settings target a `3840x1920` panorama, which fits the published GPT Image 2 size constraints while preserving the 2:1 layout we want for equirectangular crops.</p>
+    <p class="subtle">Default settings target a `3840x1920` 360 preview, which fits the published GPT Image 2 size constraints while preserving the 2:1 layout we want for equirectangular crops.</p>
 
-    <label for="existingJobId">Load existing run</label>
-    <div class="inline-grid">
-      <input id="existingJobId" placeholder="e3710d02dc37" />
-      <button id="loadRun" type="button">Load run</button>
+    <div class="scene-browser">
+      <div class="scene-browser-head">
+        <div>
+          <div class="scene-browser-title">Load Scene</div>
+          <div class="subtle">Open a previously generated high-fidelity render from this workspace.</div>
+        </div>
+        <button id="refreshScenes" class="secondary-button" type="button">Refresh</button>
+      </div>
+      <div id="sceneGrid" class="scene-grid">
+        <div class="subtle">Looking for high-fidelity renders...</div>
+      </div>
     </div>
 
     <label for="prompt">Scene prompt</label>
-    <textarea id="prompt" placeholder="A candlelit observatory carved into a salt cliff above a bioluminescent sea, brass instruments, old maps, open dome roof, dense atmospheric detail, true 360 panorama"></textarea>
-
-    <label for="sourcePanoramaPath">Existing panorama path (optional)</label>
-    <input id="sourcePanoramaPath" placeholder="/Users/magos/dev/kumanday/pano-sharp-studio/runs/e3710d02dc37/panorama.png" />
+    <textarea id="prompt" placeholder="A candlelit observatory carved into a salt cliff above a bioluminescent sea, brass instruments, old maps, open dome roof, dense atmospheric detail, true 360 preview"></textarea>
 
     <div class="reference-tools">
       <div>
@@ -572,14 +625,14 @@
       </div>
     </div>
 
-    <button id="start">Generate panorama</button>
+    <button id="start">Generate preview</button>
 
     <div class="meta">
       <div class="stack">
         <h3 class="card-title">Job Status</h3>
         <div id="status" class="stage-status">
           <div class="stage-title">Idle</div>
-          <div class="stage-message">Generate or load a panorama to begin.</div>
+          <div class="stage-message">Generate a preview to begin.</div>
         </div>
       </div>
       <div class="stack">
@@ -590,12 +643,12 @@
     <section id="preview" class="preview" hidden>
       <div class="viewer-head">
         <div>
-          <div class="viewer-kicker">Immersive Panorama</div>
+          <div class="viewer-kicker">Immersive Preview</div>
           <div class="viewer-help">Drag to look around. Arrow keys or W A S D also navigate once the viewer is active.</div>
         </div>
-        <a id="viewerRawLink" class="viewer-raw-link" href="#" target="_blank" rel="noreferrer">Open raw panorama</a>
+        <a id="viewerRawLink" class="viewer-raw-link" href="#" target="_blank" rel="noreferrer">Open raw preview</a>
       </div>
-      <div id="viewerSurface" class="viewer-surface" tabindex="0" aria-label="360 panorama viewer">
+      <div id="viewerSurface" class="viewer-surface" tabindex="0" aria-label="360 preview viewer">
         <div id="viewerCanvas" class="viewer-canvas"></div>
         <div class="viewer-overlay viewer-status">
           <div id="viewerLoading" class="viewer-chip" hidden>Loading immersive viewer...</div>
@@ -612,19 +665,19 @@
     <section id="splatPanel" class="preview" hidden>
       <div class="viewer-head">
         <div>
-          <div class="viewer-kicker">Full-Fidelity Gaussian Splat</div>
-          <div class="viewer-help">One action runs SHARP/world.ply if needed, then exports the browser-ready `.splat` viewer asset.</div>
+          <div class="viewer-kicker">High-Fidelity Render</div>
+          <div class="viewer-help">One action runs SHARP if needed, then exports the browser-ready high-fidelity render.</div>
         </div>
       </div>
       <div style="padding: 18px;">
         <div id="splatStatus" class="stage-status">
-          <div class="stage-title">Waiting for panorama</div>
-          <div class="stage-message">Generate or load a panorama first, then build the full-fidelity viewer.</div>
+          <div class="stage-title">Waiting for preview</div>
+          <div class="stage-message">Generate a preview first, then build the high-fidelity render.</div>
         </div>
-        <div class="splat-warning">Full-fidelity means no decimation. Large worlds can create hundreds of MB of viewer data and may take time to load.</div>
+        <div class="splat-warning">Large worlds can create hundreds of MB of viewer data and may take time to generate and load.</div>
         <div class="splat-actions">
-          <button id="prepareSplatViewer" type="button">Build full-fidelity viewer</button>
-          <a id="openSplatViewer" class="splat-open-link" href="#" target="_blank" rel="noreferrer" hidden>Open full-fidelity splat viewer</a>
+          <button id="prepareSplatViewer" type="button">Build high-fidelity render</button>
+          <a id="openSplatViewer" class="splat-open-link" href="#" target="_blank" rel="noreferrer" hidden>Open high-fidelity render</a>
         </div>
       </div>
     </section>

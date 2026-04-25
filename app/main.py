@@ -9,9 +9,10 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .job_forms import build_form_request
-from .models import BuildWorldRequest, CreateJobRequest, JobState, JobStatus, SetupStatus, ViewerAssetStatus
+from .models import BuildWorldRequest, CreateJobRequest, JobState, JobStatus, SceneSummary, SetupStatus, ViewerAssetStatus
 from .pipeline import run_job, run_world_job
 from .runtime import get_setup_status
+from .scenes import list_high_fidelity_scenes
 from .store import init_job, job_dir, read_status, write_status
 from .viewer_assets import get_viewer_asset_status, start_viewer_asset_job
 
@@ -46,6 +47,11 @@ def splat_viewer(job_id: str) -> str:
 @app.get("/api/setup", response_model=SetupStatus)
 def setup() -> dict:
     return get_setup_status()
+
+
+@app.get("/api/scenes", response_model=list[SceneSummary])
+def scenes() -> list[dict]:
+    return list_high_fidelity_scenes()
 
 
 @app.post("/api/jobs", response_model=JobStatus)
@@ -111,9 +117,9 @@ def build_world(job_id: str, req: BuildWorldRequest, background_tasks: Backgroun
     if status.get("state") == JobState.running.value:
         raise HTTPException(status_code=409, detail="Job is already running.")
     if "panorama" not in status.get("artifacts", {}):
-        raise HTTPException(status_code=400, detail="panorama.png is not available for this job yet.")
+        raise HTTPException(status_code=400, detail="Preview is not available for this job yet.")
 
-    write_status(job_id, state=JobState.running.value, message="Queued Gaussian splat world build")
+    write_status(job_id, state=JobState.running.value, message="Queued high-fidelity world build")
     background_tasks.add_task(run_world_job, job_id, req)
     return read_status(job_id)
 

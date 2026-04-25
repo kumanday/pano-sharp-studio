@@ -32,7 +32,14 @@ class PipelineStageTests(unittest.TestCase):
 
             status = read_status(job_id)
             self.assertEqual(status["state"], JobState.complete.value)
-            self.assertEqual(status["artifacts"], {"panorama": "panorama.png"})
+            self.assertEqual(
+                status["artifacts"],
+                {
+                    "panorama": "panorama.png",
+                    "preview_thumbnail": "preview_thumbnail.jpg",
+                },
+            )
+            self.assertTrue((job_dir(job_id) / "preview_thumbnail.jpg").exists())
             self.assertFalse((job_dir(job_id) / "faces").exists())
             self.assertFalse((job_dir(job_id) / "world.ply").exists())
         finally:

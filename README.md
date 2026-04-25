@@ -113,14 +113,14 @@ Instead, this app:
    - `sphere24`: 8 yaw positions x 3 pitch rows, default.
 4. Run `sharp predict -i runs/<job>/faces -o runs/<job>/sharp_plys`.
 5. Merge the per-face PLY files into `runs/<job>/world.ply`.
-6. Download the panorama, face manifest, per-face PLYs, and merged PLY from the UI.
-7. Optionally prepare a full-fidelity browser `.splat` asset from `world.ply` and open the fullscreen Gaussian splat viewer.
+6. Inspect the 360 preview, then build the high-fidelity render when the scene is worth keeping.
+7. Open previous high-fidelity renders from the **Load Scene** thumbnail picker.
 
-## Full-fidelity splat viewer
+## High-fidelity render viewer
 
-The main page keeps the 360 panorama viewer as the fast preview. When a completed job has `world.ply`, use **Prepare full-fidelity splat viewer** to manually convert it to `runs/<job>/viewer/world.splat`.
+The main page keeps the 360 preview viewer fast and lightweight. Use **Build high-fidelity render** to run SHARP if needed and export the browser-ready render at `runs/<job>/viewer/world.splat`.
 
-This conversion preserves every splat; it does not decimate. Large worlds are therefore intentionally heavy. The sample `e3710d02dc37` run has `15,572,577` splats and exports to an approximately `498 MB` `.splat` file.
+Large worlds can create hundreds of MB of viewer data and may take time to generate and load. A small `preview_thumbnail.jpg` is created as soon as each preview is generated; the Load Scene picker lists only completed high-fidelity renders that already have that thumbnail.
 
 The viewer frontend is built with Vite from `frontend/splat-viewer.js` and uses `@mkkellogg/gaussian-splats-3d` plus `three`. The built bundle is served from `app/static/dist/splat-viewer.js`; do not vendor Three.js manually.
 
@@ -145,7 +145,7 @@ client.images.generate(
 - aspect ratio no more than `3:1`
 - total pixels between `655,360` and `8,294,400`
 
-If you provide reference images, the app downloads/uploads and normalizes them to PNG, then calls `client.images.edit(...)` with the same prompt, size, quality, and output format. References are only used when generating a new panorama; if `--source-panorama-path` or the UI's existing panorama field is set, the app imports that panorama directly.
+If you provide reference images, the app downloads/uploads and normalizes them to PNG, then calls `client.images.edit(...)` with the same prompt, size, quality, and output format. References are used when generating a new preview.
 
 ## Implementation notes
 

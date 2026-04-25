@@ -40,7 +40,7 @@ class ViewerAssetsApiTests(unittest.TestCase):
         response = self.client.post(f"/api/jobs/{self.job_id}/viewer-assets")
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("panorama.png", response.json()["detail"])
+        self.assertIn("Preview", response.json()["detail"])
 
     def test_ready_asset_is_idempotent(self) -> None:
         viewer_dir = job_dir(self.job_id) / "viewer"

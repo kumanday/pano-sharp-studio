@@ -9,7 +9,7 @@ function jobIdFromPath() {
 async function loadManifest(jobId) {
   const response = await fetch(`/api/jobs/${jobId}/files/viewer/manifest.json`);
   if (!response.ok) {
-    throw new Error('Viewer manifest is not ready. Prepare the full-fidelity viewer asset first.');
+    throw new Error('High-fidelity render is not ready yet.');
   }
   return response.json();
 }
@@ -26,7 +26,7 @@ async function boot() {
     console.error(error);
     status.hidden = false;
     status.classList.add('error');
-    status.textContent = error?.message || 'Failed to load splat viewer.';
+    status.textContent = error?.message || 'Failed to load high-fidelity render.';
   }
 }
 

@@ -60,7 +60,7 @@ function renderJobStatus(status) {
   const titles = {
     queued: 'Queued',
     running: 'Working',
-    complete: 'Panorama ready',
+    complete: 'Preview ready',
     failed: 'Run failed',
   };
   const tone = status.state === 'failed' ? 'bad' : (status.state === 'complete' ? 'good' : 'neutral');
@@ -74,6 +74,28 @@ function renderJobStatus(status) {
       artifactCount === 1 ? '1 artifact' : `${artifactCount} artifacts`,
     ],
   });
+}
+
+function renderScenes(scenes) {
+  if (!scenes.length) {
+    $('sceneGrid').innerHTML = '<div class="subtle">No high-fidelity renders yet. Generate a preview, then build a high-fidelity render to add it here.</div>';
+    return;
+  }
+
+  $('sceneGrid').innerHTML = scenes.map((scene) => `
+    <button class="scene-card" type="button" data-scene-viewer="${escapeHtml(scene.viewer_url)}" aria-label="Open high-fidelity render ${escapeHtml(scene.id)}">
+      <img src="/api/jobs/${encodeURIComponent(scene.id)}/files/${encodeURIComponent(scene.thumbnail)}" alt="" loading="lazy" />
+    </button>
+  `).join('');
+}
+
+async function loadScenes() {
+  const r = await fetch('/api/scenes');
+  if (!r.ok) {
+    $('sceneGrid').innerHTML = '<div class="subtle">Could not load saved high-fidelity renders.</div>';
+    return;
+  }
+  renderScenes(await r.json());
 }
 
 function renderReferenceFiles() {
@@ -179,11 +201,11 @@ function clearViewerAssetPanel() {
   viewerAssetTimer = null;
   $('splatPanel').hidden = true;
   $('splatStatus').innerHTML = renderStageCard({
-    title: 'Waiting for panorama',
-    message: 'Generate or load a panorama first, then build the full-fidelity viewer.',
+    title: 'Waiting for preview',
+    message: 'Generate a preview first, then build the high-fidelity render.',
   });
   $('prepareSplatViewer').disabled = false;
-  $('prepareSplatViewer').textContent = 'Build full-fidelity viewer';
+  $('prepareSplatViewer').textContent = 'Build high-fidelity render';
   $('openSplatViewer').hidden = true;
   $('openSplatViewer').href = '#';
 }
@@ -228,10 +250,10 @@ async function renderPanoramaViewer(jobId, relPath) {
     } catch (error) {
       console.error(error);
       panoramaViewer = null;
-      $('viewerCanvas').innerHTML = `<img src="${panoramaUrl}" alt="Generated panorama preview" />`;
+      $('viewerCanvas').innerHTML = `<img src="${panoramaUrl}" alt="Generated 360 preview" />`;
       $('viewerLoading').hidden = true;
       $('viewerError').hidden = false;
-      $('viewerError').textContent = `Interactive viewer unavailable here: ${error?.message || 'unknown viewer error'}. Showing the flat panorama instead.`;
+      $('viewerError').textContent = `Interactive viewer unavailable here: ${error?.message || 'unknown viewer error'}. Showing the flat preview instead.`;
     } finally {
       panoramaLoadPromise = null;
     }
@@ -255,7 +277,6 @@ async function poll(jobId) {
 
   const status = await r.json();
   activeJobId = jobId;
-  $('existingJobId').value = jobId;
   setRunUrl(jobId);
   renderJobStatus(status);
 
@@ -286,40 +307,43 @@ function renderViewerAssetStatus(jobId, status) {
   const preparing = status.state === 'preparing';
   const failed = status.state === 'failed';
   const stageTitles = {
-    world: 'Building Gaussian splat world',
-    splat: 'Exporting browser splat asset',
-    ready: 'Full-fidelity viewer ready',
-    failed: 'Full-fidelity build failed',
+    world: 'Building high-fidelity world',
+    splat: 'Exporting high-fidelity render',
+    ready: 'High-fidelity render ready',
+    failed: 'High-fidelity render build failed',
     missing: 'Ready when you are',
   };
   const progress = status.progress?.percent !== undefined ? status.progress : null;
   const manifest = status.manifest || {};
   const meta = [];
   if (progress?.processed !== undefined && progress?.total !== undefined) {
-    meta.push(`${Number(progress.processed).toLocaleString()} / ${Number(progress.total).toLocaleString()} splats`);
+    meta.push(`${Number(progress.processed).toLocaleString()} / ${Number(progress.total).toLocaleString()} render points`);
   }
   if (manifest.splat_count) {
-    meta.push(`${Number(manifest.splat_count).toLocaleString()} splats`);
+    meta.push(`${Number(manifest.splat_count).toLocaleString()} render points`);
   }
   if (manifest.asset_bytes) {
     meta.push(formatBytes(manifest.asset_bytes));
   }
   if (status.artifacts?.viewer_splat) {
-    meta.push(status.artifacts.viewer_splat);
+    meta.push('browser-ready render asset');
   }
 
   $('splatStatus').innerHTML = renderStageCard({
-    title: stageTitles[status.stage] || stageTitles[status.state] || 'Full-fidelity viewer',
-    message: status.message || 'Build the full-fidelity viewer when this panorama is worth reconstructing.',
+    title: stageTitles[status.stage] || stageTitles[status.state] || 'High-fidelity render',
+    message: status.message || 'Build the high-fidelity render when this preview is worth reconstructing.',
     tone: failed ? 'bad' : (ready ? 'good' : 'neutral'),
     meta,
     progress,
   });
 
   $('prepareSplatViewer').disabled = preparing;
-  $('prepareSplatViewer').textContent = failed ? 'Retry full-fidelity viewer build' : 'Build full-fidelity viewer';
+  $('prepareSplatViewer').textContent = failed ? 'Retry high-fidelity render build' : 'Build high-fidelity render';
   $('openSplatViewer').hidden = !ready;
   $('openSplatViewer').href = ready ? `/viewer/${jobId}` : '#';
+  if (ready) {
+    loadScenes().catch((error) => console.error(error));
+  }
 
   if (preparing && !viewerAssetTimer) {
     viewerAssetTimer = setInterval(() => refreshViewerAssets(jobId), 2500);
@@ -344,8 +368,8 @@ async function prepareViewerAssets() {
   }
   $('prepareSplatViewer').disabled = true;
   $('splatStatus').innerHTML = renderStageCard({
-    title: 'Queueing full-fidelity viewer',
-    message: 'The app will run SHARP/world.ply if needed, then export the browser .splat asset.',
+    title: 'Queueing high-fidelity render',
+    message: 'The app will run SHARP if needed, then export the browser-ready high-fidelity render.',
   });
 
   const r = await fetch(`/api/jobs/${activeJobId}/viewer-assets`, {
@@ -358,7 +382,7 @@ async function prepareViewerAssets() {
       merge: true,
     }),
   });
-  const status = await r.json().catch(() => ({ state: 'failed', message: 'Failed to prepare viewer asset.' }));
+  const status = await r.json().catch(() => ({ state: 'failed', message: 'Failed to prepare high-fidelity render.' }));
   if (!r.ok) {
     status.state = 'failed';
     status.stage = 'failed';
@@ -388,15 +412,14 @@ async function startJob() {
   $('artifacts').innerHTML = '';
   $('status').innerHTML = renderStageCard({
     title: 'Creating job',
-    message: 'Preparing the panorama request.',
+    message: 'Preparing the preview request.',
   });
 
-  const sourcePanoramaPath = $('sourcePanoramaPath').value.trim();
-  const prompt = $('prompt').value.trim() || (sourcePanoramaPath ? `Imported panorama: ${sourcePanoramaPath.split('/').pop()}` : '');
+  const prompt = $('prompt').value.trim();
   if (!prompt) {
     $('status').innerHTML = renderStageCard({
       title: 'Prompt needed',
-      message: 'Enter a scene prompt or provide an existing panorama path.',
+      message: 'Enter a scene prompt to generate a preview.',
       tone: 'bad',
     });
     $('start').disabled = false;
@@ -407,17 +430,15 @@ async function startJob() {
   body.append('prompt', prompt);
   body.append('size', $('size').value);
   body.append('quality', $('quality').value);
-  body.append('source_panorama_path', sourcePanoramaPath);
-  body.append('reference_image_urls', sourcePanoramaPath ? '' : $('referenceImageUrls').value);
+  body.append('source_panorama_path', '');
+  body.append('reference_image_urls', $('referenceImageUrls').value);
   body.append('preset', $('preset').value);
   body.append('crop_size', String(Number($('cropSize').value)));
   body.append('output_format', 'png');
   body.append('merge', 'true');
   body.append('run_reconstruction', 'false');
 
-  if (!sourcePanoramaPath) {
-    referenceFiles.forEach((file) => body.append('reference_images', file, file.name));
-  }
+  referenceFiles.forEach((file) => body.append('reference_images', file, file.name));
 
   const r = await fetch('/api/jobs/form', {
     method: 'POST',
@@ -471,12 +492,13 @@ function bindReferenceInputs() {
 function bindEvents() {
   $('start').onclick = startJob;
   $('prepareSplatViewer').onclick = prepareViewerAssets;
-  $('loadRun').onclick = async () => {
-    try {
-      await loadExistingRun($('existingJobId').value);
-    } catch (error) {
-      console.error(error);
+  $('refreshScenes').onclick = () => loadScenes().catch((error) => console.error(error));
+  $('sceneGrid').onclick = (event) => {
+    const card = event.target.closest('[data-scene-viewer]');
+    if (!card) {
+      return;
     }
+    window.open(card.dataset.sceneViewer, '_blank', 'noreferrer');
   };
   $('fullscreenButton').onclick = async () => {
     try {
@@ -501,6 +523,7 @@ function boot() {
   bindEvents();
   renderReferenceFiles();
   loadSetup();
+  loadScenes().catch((error) => console.error(error));
 
   const params = new URLSearchParams(window.location.search);
   const initialJobId = params.get('job');
