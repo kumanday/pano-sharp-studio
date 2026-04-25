@@ -35,13 +35,10 @@
       z-index: 5;
       left: 16px;
       top: 16px;
-      right: 16px;
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
+      max-width: min(720px, calc(100vw - 32px));
       pointer-events: none;
     }
-    .chip, button {
+    .chip {
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 999px;
       padding: 10px 13px;
@@ -51,12 +48,8 @@
       font: inherit;
       line-height: 1.2;
     }
-    button {
-      cursor: pointer;
-      pointer-events: auto;
-    }
-    a {
-      color: #ffd39c;
+    .chip[hidden] {
+      display: none;
     }
     .error {
       border-color: rgba(255, 152, 152, 0.46);
@@ -67,9 +60,8 @@
 <body>
   <div id="viewerRoot"></div>
   <div class="hud">
-    <div id="status" class="chip">Loading full-fidelity splat viewer...</div>
-    <button id="fullscreen" type="button">Fullscreen</button>
+    <div id="status" class="chip" hidden></div>
   </div>
-  <script type="module" src="/static/splat-viewer-page.js?v=2"></script>
+  <script type="module" src="/static/splat-viewer-page.js?v=3"></script>
 </body>
 </html>
