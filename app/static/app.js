@@ -118,7 +118,14 @@ function clearPreview() {
   $('viewerError').hidden = true;
   $('viewerError').textContent = '';
   $('preview').hidden = true;
+  clearWorldPanel();
   clearViewerAssetPanel();
+}
+
+function clearWorldPanel() {
+  $('worldPanel').hidden = true;
+  $('worldStatus').textContent = 'World build not checked yet.';
+  $('buildWorld').disabled = false;
 }
 
 function clearViewerAssetPanel() {
@@ -129,6 +136,52 @@ function clearViewerAssetPanel() {
   $('prepareSplatViewer').disabled = false;
   $('openSplatViewer').hidden = true;
   $('openSplatViewer').href = '#';
+}
+
+function renderWorldStatus(jobId, jobStatus) {
+  const artifacts = jobStatus.artifacts || {};
+  $('worldPanel').hidden = false;
+
+  if (artifacts.world_ply) {
+    $('worldStatus').textContent = JSON.stringify({
+      state: 'ready',
+      job: jobId,
+      message: 'world.ply is ready. You can now prepare the full-fidelity browser viewer asset.',
+      artifacts: {
+        world_ply: artifacts.world_ply,
+      },
+    }, null, 2);
+    $('buildWorld').disabled = true;
+    return;
+  }
+
+  const isRunning = jobStatus.state === 'running';
+  $('buildWorld').disabled = isRunning;
+  $('worldStatus').textContent = JSON.stringify({
+    state: isRunning ? 'building_or_generating' : 'panorama_ready',
+    job: jobId,
+    message: isRunning
+      ? jobStatus.message
+      : 'Panorama is ready. Build the Gaussian splat world when you are happy with the image.',
+  }, null, 2);
+}
+
+function renderViewerAssetPending(jobId, jobStatus) {
+  clearInterval(viewerAssetTimer);
+  viewerAssetTimer = null;
+  $('splatPanel').hidden = false;
+  $('prepareSplatViewer').disabled = true;
+  $('openSplatViewer').hidden = true;
+  $('openSplatViewer').href = '#';
+
+  const message = jobStatus.state === 'failed'
+    ? 'This job failed before world.ply was produced, so the full-fidelity viewer cannot be prepared.'
+    : 'Waiting for SHARP and PLY merge to finish. The full-fidelity viewer can be prepared once world.ply appears in Artifacts.';
+  $('splatStatus').textContent = JSON.stringify({
+    state: 'waiting_for_world_ply',
+    job: jobId,
+    message,
+  }, null, 2);
 }
 
 async function renderPanoramaViewer(jobId, relPath) {
@@ -205,12 +258,15 @@ async function poll(jobId) {
 
   if (artifacts.panorama) {
     await renderPanoramaViewer(jobId, artifacts.panorama);
+    renderWorldStatus(jobId, status);
   } else {
     clearPreview();
   }
 
   if (artifacts.world_ply) {
     await refreshViewerAssets(jobId);
+  } else if (artifacts.panorama) {
+    renderViewerAssetPending(jobId, status);
   } else {
     clearViewerAssetPanel();
   }
@@ -265,6 +321,35 @@ async function prepareViewerAssets() {
   renderViewerAssetStatus(activeJobId, status);
 }
 
+async function buildWorld() {
+  if (!activeJobId) {
+    return;
+  }
+  $('buildWorld').disabled = true;
+  $('worldStatus').textContent = 'Queueing Gaussian splat world build...';
+
+  const r = await fetch(`/api/jobs/${activeJobId}/world`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      preset: $('preset').value,
+      crop_size: Number($('cropSize').value),
+      face_fov_deg: 80.0,
+      merge: true,
+    }),
+  });
+  const status = await r.json().catch(() => ({ state: 'failed', message: 'Failed to queue world build.' }));
+  if (!r.ok) {
+    $('worldStatus').textContent = typeof status.detail === 'string' ? status.detail : JSON.stringify(status, null, 2);
+    $('buildWorld').disabled = false;
+    return;
+  }
+
+  renderWorldStatus(activeJobId, status);
+  clearInterval(timer);
+  timer = setInterval(() => poll(activeJobId), 2500);
+}
+
 async function loadExistingRun(jobId) {
   const trimmed = jobId.trim();
   if (!trimmed) {
@@ -304,6 +389,7 @@ async function startJob() {
   body.append('crop_size', String(Number($('cropSize').value)));
   body.append('output_format', 'png');
   body.append('merge', 'true');
+  body.append('run_reconstruction', 'false');
 
   if (!sourcePanoramaPath) {
     referenceFiles.forEach((file) => body.append('reference_images', file, file.name));
@@ -356,6 +442,7 @@ function bindReferenceInputs() {
 
 function bindEvents() {
   $('start').onclick = startJob;
+  $('buildWorld').onclick = buildWorld;
   $('prepareSplatViewer').onclick = prepareViewerAssets;
   $('loadRun').onclick = async () => {
     try {

@@ -25,6 +25,7 @@ class CreateJobRequest(BaseModel):
     preset: Literal["horizon8", "sphere24"] = "sphere24"
     face_fov_deg: float = Field(default=80.0, ge=45.0, le=120.0)
     merge: bool = True
+    run_reconstruction: bool = True
 
     @model_validator(mode="after")
     def validate_reference_count(self) -> "CreateJobRequest":
@@ -41,6 +42,13 @@ class JobStatus(BaseModel):
     message: str = ""
     prompt: str
     artifacts: dict[str, str] = Field(default_factory=dict)
+
+
+class BuildWorldRequest(BaseModel):
+    crop_size: int = Field(default=1024, ge=512, le=2048)
+    preset: Literal["horizon8", "sphere24"] = "sphere24"
+    face_fov_deg: float = Field(default=80.0, ge=45.0, le=120.0)
+    merge: bool = True
 
 
 class ViewerAssetStatus(BaseModel):

@@ -35,6 +35,7 @@ async def build_form_request(
     crop_size: int,
     face_fov_deg: float,
     merge: bool,
+    run_reconstruction: bool,
     reference_images: list[UploadFile] | None,
 ) -> CreateJobRequest:
     source_path = source_panorama_path.strip()
@@ -58,6 +59,7 @@ async def build_form_request(
             crop_size=crop_size,
             face_fov_deg=face_fov_deg,
             merge=merge,
+            run_reconstruction=run_reconstruction,
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

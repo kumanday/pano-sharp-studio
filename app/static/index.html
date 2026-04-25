@@ -382,6 +382,15 @@
     .splat-actions a {
       margin-top: 0;
     }
+    .world-open-note {
+      margin-top: 12px;
+      border: 1px solid rgba(140, 224, 214, 0.24);
+      border-radius: 16px;
+      padding: 12px 14px;
+      color: #baf8f1;
+      background: rgba(140, 224, 214, 0.06);
+      line-height: 1.5;
+    }
     .splat-open-link {
       display: inline-flex;
       align-items: center;
@@ -509,7 +518,7 @@
       </div>
     </div>
 
-    <button id="start">Generate splat world</button>
+    <button id="start">Generate panorama</button>
 
     <div class="meta">
       <div class="stack">
@@ -543,6 +552,21 @@
         </div>
       </div>
     </section>
+    <section id="worldPanel" class="preview" hidden>
+      <div class="viewer-head">
+        <div>
+          <div class="viewer-kicker">Gaussian Splat World</div>
+          <div class="viewer-help">The panorama is the fast checkpoint. Build the SHARP/PLY world manually once the image is worth reconstructing.</div>
+        </div>
+      </div>
+      <div style="padding: 18px;">
+        <pre id="worldStatus">World build not checked yet.</pre>
+        <div class="world-open-note">This stage runs perspective crops through Apple SHARP and merges the resulting PLY files. It can take several minutes.</div>
+        <div class="splat-actions">
+          <button id="buildWorld" type="button">Build Gaussian splat world</button>
+        </div>
+      </div>
+    </section>
     <section id="splatPanel" class="preview" hidden>
       <div class="viewer-head">
         <div>
@@ -561,6 +585,6 @@
     </section>
   </section>
 </main>
-<script type="module" src="/static/app.js?v=1"></script>
+<script type="module" src="/static/app.js?v=2"></script>
 </body>
 </html>

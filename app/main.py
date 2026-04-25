@@ -9,10 +9,10 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .job_forms import build_form_request
-from .models import CreateJobRequest, JobStatus, SetupStatus, ViewerAssetStatus
-from .pipeline import run_job
+from .models import BuildWorldRequest, CreateJobRequest, JobState, JobStatus, SetupStatus, ViewerAssetStatus
+from .pipeline import run_job, run_world_job
 from .runtime import get_setup_status
-from .store import init_job, job_dir, read_status
+from .store import init_job, job_dir, read_status, write_status
 from .viewer_assets import get_viewer_asset_status, start_viewer_asset_job
 
 app = FastAPI(title="Pano Sharp Studio", version="0.2.0")
@@ -69,6 +69,7 @@ async def create_job_form(
     crop_size: Annotated[int, Form()] = 1024,
     face_fov_deg: Annotated[float, Form()] = 80.0,
     merge: Annotated[bool, Form()] = True,
+    run_reconstruction: Annotated[bool, Form()] = True,
     reference_images: Annotated[list[UploadFile] | None, File()] = None,
 ) -> dict:
     job_id = uuid.uuid4().hex[:12]
@@ -84,6 +85,7 @@ async def create_job_form(
         crop_size=crop_size,
         face_fov_deg=face_fov_deg,
         merge=merge,
+        run_reconstruction=run_reconstruction,
         reference_images=reference_images,
     )
 
@@ -98,6 +100,22 @@ def get_job(job_id: str) -> dict:
         return read_status(job_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Job not found") from None
+
+
+@app.post("/api/jobs/{job_id}/world", response_model=JobStatus)
+def build_world(job_id: str, req: BuildWorldRequest, background_tasks: BackgroundTasks) -> dict:
+    try:
+        status = read_status(job_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    if status.get("state") == JobState.running.value:
+        raise HTTPException(status_code=409, detail="Job is already running.")
+    if "panorama" not in status.get("artifacts", {}):
+        raise HTTPException(status_code=400, detail="panorama.png is not available for this job yet.")
+
+    write_status(job_id, state=JobState.running.value, message="Queued Gaussian splat world build")
+    background_tasks.add_task(run_world_job, job_id, req)
+    return read_status(job_id)
 
 
 @app.get("/api/jobs/{job_id}/viewer-assets", response_model=ViewerAssetStatus)

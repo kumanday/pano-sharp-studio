@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image
 
 from .equirect import equirect_to_perspective
-from .models import CreateJobRequest, JobState
+from .models import BuildWorldRequest, CreateJobRequest, JobState
 from .openai_images import generate_panorama
 from .ply_merge import merge_sharp_plys
 from .reference_images import prepare_reference_images, write_reference_manifest
@@ -32,6 +32,47 @@ def _import_existing_panorama(source_path: str, dest_path: Path) -> Path:
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         rgb.save(dest_path, format="PNG")
     return dest_path
+
+
+def _build_world_from_panorama(
+    job_id: str,
+    *,
+    pano_path: Path,
+    faces_dir: Path,
+    plys_dir: Path,
+    out_ply: Path,
+    preset: str,
+    crop_size: int,
+    face_fov_deg: float,
+    merge: bool,
+    report: Reporter,
+) -> None:
+    message = "Splitting panorama into perspective crops"
+    write_status(job_id, state=JobState.running.value, message=message)
+    report(message)
+    equirect_to_perspective(
+        pano_path,
+        faces_dir,
+        preset=preset,
+        crop_size=crop_size,
+        fov_deg=face_fov_deg,
+    )
+    add_artifact(job_id, "faces_manifest", "faces/faces.json")
+
+    message = "Running Apple SHARP on perspective crops"
+    write_status(job_id, message=message)
+    report(message)
+    plys = run_sharp_predict(faces_dir, plys_dir)
+    if not plys:
+        raise RuntimeError("SHARP finished without writing any .ply files")
+    add_artifact(job_id, "sharp_plys_dir", "sharp_plys")
+
+    if merge:
+        message = "Merging per-face PLY files into world.ply"
+        write_status(job_id, message=message)
+        report(message)
+        merge_sharp_plys(faces_dir / "faces.json", plys_dir, out_ply)
+        add_artifact(job_id, "world_ply", "world.ply")
 
 
 def run_job(job_id: str, req: CreateJobRequest, reporter: Reporter | None = None) -> None:
@@ -79,33 +120,61 @@ def run_job(job_id: str, req: CreateJobRequest, reporter: Reporter | None = None
             )
         add_artifact(job_id, "panorama", "panorama.png")
 
-        message = "Splitting panorama into perspective crops"
-        write_status(job_id, message=message)
-        report(message)
-        equirect_to_perspective(
-            pano_path,
-            faces_dir,
+        if not req.run_reconstruction:
+            message = "Panorama ready. Build the Gaussian splat world when you are happy with it."
+            write_status(job_id, state=JobState.complete.value, message=message)
+            report(message)
+            return
+
+        _build_world_from_panorama(
+            job_id,
+            pano_path=pano_path,
+            faces_dir=faces_dir,
+            plys_dir=plys_dir,
+            out_ply=out_ply,
             preset=req.preset,
             crop_size=req.crop_size,
-            fov_deg=req.face_fov_deg,
+            face_fov_deg=req.face_fov_deg,
+            merge=req.merge,
+            report=report,
         )
-        add_artifact(job_id, "faces_manifest", "faces/faces.json")
 
-        message = "Running Apple SHARP on perspective crops"
-        write_status(job_id, message=message)
+        message = "Complete"
+        write_status(job_id, state=JobState.complete.value, message=message)
         report(message)
-        plys = run_sharp_predict(faces_dir, plys_dir)
-        if not plys:
-            raise RuntimeError("SHARP finished without writing any .ply files")
-        add_artifact(job_id, "sharp_plys_dir", "sharp_plys")
+    except Exception as exc:
+        (root / "error.txt").write_text(traceback.format_exc())
+        add_artifact(job_id, "error", "error.txt")
+        write_status(job_id, state=JobState.failed.value, message=str(exc))
+        report(f"Failed: {exc}")
 
-        if req.merge:
-            message = "Merging per-face PLY files into world.ply"
-            write_status(job_id, message=message)
-            report(message)
-            merge_sharp_plys(faces_dir / "faces.json", plys_dir, out_ply)
-            add_artifact(job_id, "world_ply", "world.ply")
 
+def run_world_job(job_id: str, req: BuildWorldRequest, reporter: Reporter | None = None) -> None:
+    root = job_dir(job_id)
+    pano_path = root / "panorama.png"
+    faces_dir = root / "faces"
+    plys_dir = root / "sharp_plys"
+    out_ply = root / "world.ply"
+
+    def report(message: str) -> None:
+        if reporter:
+            reporter(message)
+
+    try:
+        if not pano_path.exists():
+            raise FileNotFoundError("panorama.png is not available for this job.")
+        _build_world_from_panorama(
+            job_id,
+            pano_path=pano_path,
+            faces_dir=faces_dir,
+            plys_dir=plys_dir,
+            out_ply=out_ply,
+            preset=req.preset,
+            crop_size=req.crop_size,
+            face_fov_deg=req.face_fov_deg,
+            merge=req.merge,
+            report=report,
+        )
         message = "Complete"
         write_status(job_id, state=JobState.complete.value, message=message)
         report(message)
