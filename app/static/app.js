@@ -11,7 +11,7 @@ let viewerAssetTimer = null;
 const viewerModulePromise = import('/static/panorama-viewer.js?v=4');
 
 function escapeHtml(text) {
-  return text
+  return String(text ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -21,6 +21,59 @@ function escapeHtml(text) {
 
 function fileLink(jobId, relPath, label) {
   return `<div class="artifact"><a href="/api/jobs/${jobId}/files/${relPath}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a><br><small>${escapeHtml(relPath)}</small></div>`;
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(Number(bytes))) {
+    return '';
+  }
+  const units = ['bytes', 'KB', 'MB', 'GB'];
+  let value = Number(bytes);
+  let unit = units.shift();
+  while (value >= 1024 && units.length) {
+    value /= 1024;
+    unit = units.shift();
+  }
+  const precision = value >= 10 || unit === 'bytes' ? 0 : 1;
+  return `${value.toFixed(precision)} ${unit}`;
+}
+
+function renderStageCard({ title, message, tone = 'neutral', meta = [], progress = null }) {
+  const metaHtml = meta.filter(Boolean)
+    .map((item) => `<span>${escapeHtml(item)}</span>`)
+    .join('');
+  const progressHtml = progress
+    ? `<div class="progress-bar" aria-label="Progress"><div class="progress-fill" style="width: ${Math.max(0, Math.min(100, Number(progress.percent || 0)))}%"></div></div>`
+    : '';
+
+  return `
+    <div class="stage-status ${escapeHtml(tone)}">
+      <div class="stage-title">${escapeHtml(title)}</div>
+      <div class="stage-message">${escapeHtml(message)}</div>
+      ${metaHtml ? `<div class="stage-meta">${metaHtml}</div>` : ''}
+      ${progressHtml}
+    </div>
+  `;
+}
+
+function renderJobStatus(status) {
+  const titles = {
+    queued: 'Queued',
+    running: 'Working',
+    complete: 'Panorama ready',
+    failed: 'Run failed',
+  };
+  const tone = status.state === 'failed' ? 'bad' : (status.state === 'complete' ? 'good' : 'neutral');
+  const artifactCount = Object.keys(status.artifacts || {}).length;
+  $('status').innerHTML = renderStageCard({
+    title: titles[status.state] || 'Job status',
+    message: status.message || 'Waiting for the next step.',
+    tone,
+    meta: [
+      `Run ${status.id}`,
+      artifactCount === 1 ? '1 artifact' : `${artifactCount} artifacts`,
+    ],
+  });
 }
 
 function renderReferenceFiles() {
@@ -118,70 +171,21 @@ function clearPreview() {
   $('viewerError').hidden = true;
   $('viewerError').textContent = '';
   $('preview').hidden = true;
-  clearWorldPanel();
   clearViewerAssetPanel();
-}
-
-function clearWorldPanel() {
-  $('worldPanel').hidden = true;
-  $('worldStatus').textContent = 'World build not checked yet.';
-  $('buildWorld').disabled = false;
 }
 
 function clearViewerAssetPanel() {
   clearInterval(viewerAssetTimer);
   viewerAssetTimer = null;
   $('splatPanel').hidden = true;
-  $('splatStatus').textContent = 'Viewer asset not checked yet.';
+  $('splatStatus').innerHTML = renderStageCard({
+    title: 'Waiting for panorama',
+    message: 'Generate or load a panorama first, then build the full-fidelity viewer.',
+  });
   $('prepareSplatViewer').disabled = false;
+  $('prepareSplatViewer').textContent = 'Build full-fidelity viewer';
   $('openSplatViewer').hidden = true;
   $('openSplatViewer').href = '#';
-}
-
-function renderWorldStatus(jobId, jobStatus) {
-  const artifacts = jobStatus.artifacts || {};
-  $('worldPanel').hidden = false;
-
-  if (artifacts.world_ply) {
-    $('worldStatus').textContent = JSON.stringify({
-      state: 'ready',
-      job: jobId,
-      message: 'world.ply is ready. You can now prepare the full-fidelity browser viewer asset.',
-      artifacts: {
-        world_ply: artifacts.world_ply,
-      },
-    }, null, 2);
-    $('buildWorld').disabled = true;
-    return;
-  }
-
-  const isRunning = jobStatus.state === 'running';
-  $('buildWorld').disabled = isRunning;
-  $('worldStatus').textContent = JSON.stringify({
-    state: isRunning ? 'building_or_generating' : 'panorama_ready',
-    job: jobId,
-    message: isRunning
-      ? jobStatus.message
-      : 'Panorama is ready. Build the Gaussian splat world when you are happy with the image.',
-  }, null, 2);
-}
-
-function renderViewerAssetPending(jobId, jobStatus) {
-  clearInterval(viewerAssetTimer);
-  viewerAssetTimer = null;
-  $('splatPanel').hidden = false;
-  $('prepareSplatViewer').disabled = true;
-  $('openSplatViewer').hidden = true;
-  $('openSplatViewer').href = '#';
-
-  const message = jobStatus.state === 'failed'
-    ? 'This job failed before world.ply was produced, so the full-fidelity viewer cannot be prepared.'
-    : 'Waiting for SHARP and PLY merge to finish. The full-fidelity viewer can be prepared once world.ply appears in Artifacts.';
-  $('splatStatus').textContent = JSON.stringify({
-    state: 'waiting_for_world_ply',
-    job: jobId,
-    message,
-  }, null, 2);
 }
 
 async function renderPanoramaViewer(jobId, relPath) {
@@ -239,7 +243,11 @@ async function renderPanoramaViewer(jobId, relPath) {
 async function poll(jobId) {
   const r = await fetch(`/api/jobs/${jobId}`);
   if (!r.ok) {
-    $('status').textContent = `Run ${jobId} not found`;
+    $('status').innerHTML = renderStageCard({
+      title: 'Run not found',
+      message: `Run ${jobId} was not found.`,
+      tone: 'bad',
+    });
     $('artifacts').innerHTML = '';
     clearPreview();
     throw new Error(`Run ${jobId} not found`);
@@ -249,7 +257,7 @@ async function poll(jobId) {
   activeJobId = jobId;
   $('existingJobId').value = jobId;
   setRunUrl(jobId);
-  $('status').textContent = JSON.stringify(status, null, 2);
+  renderJobStatus(status);
 
   const artifacts = status.artifacts || {};
   $('artifacts').innerHTML = Object.entries(artifacts)
@@ -258,17 +266,9 @@ async function poll(jobId) {
 
   if (artifacts.panorama) {
     await renderPanoramaViewer(jobId, artifacts.panorama);
-    renderWorldStatus(jobId, status);
+    await refreshViewerAssets(jobId);
   } else {
     clearPreview();
-  }
-
-  if (artifacts.world_ply) {
-    await refreshViewerAssets(jobId);
-  } else if (artifacts.panorama) {
-    renderViewerAssetPending(jobId, status);
-  } else {
-    clearViewerAssetPanel();
   }
 
   if (status.state === 'complete' || status.state === 'failed') {
@@ -282,17 +282,49 @@ async function poll(jobId) {
 
 function renderViewerAssetStatus(jobId, status) {
   $('splatPanel').hidden = false;
-  $('splatStatus').textContent = JSON.stringify(status, null, 2);
-  $('prepareSplatViewer').disabled = status.state === 'preparing';
-
   const ready = status.state === 'ready' && status.artifacts?.viewer_splat;
+  const preparing = status.state === 'preparing';
+  const failed = status.state === 'failed';
+  const stageTitles = {
+    world: 'Building Gaussian splat world',
+    splat: 'Exporting browser splat asset',
+    ready: 'Full-fidelity viewer ready',
+    failed: 'Full-fidelity build failed',
+    missing: 'Ready when you are',
+  };
+  const progress = status.progress?.percent !== undefined ? status.progress : null;
+  const manifest = status.manifest || {};
+  const meta = [];
+  if (progress?.processed !== undefined && progress?.total !== undefined) {
+    meta.push(`${Number(progress.processed).toLocaleString()} / ${Number(progress.total).toLocaleString()} splats`);
+  }
+  if (manifest.splat_count) {
+    meta.push(`${Number(manifest.splat_count).toLocaleString()} splats`);
+  }
+  if (manifest.asset_bytes) {
+    meta.push(formatBytes(manifest.asset_bytes));
+  }
+  if (status.artifacts?.viewer_splat) {
+    meta.push(status.artifacts.viewer_splat);
+  }
+
+  $('splatStatus').innerHTML = renderStageCard({
+    title: stageTitles[status.stage] || stageTitles[status.state] || 'Full-fidelity viewer',
+    message: status.message || 'Build the full-fidelity viewer when this panorama is worth reconstructing.',
+    tone: failed ? 'bad' : (ready ? 'good' : 'neutral'),
+    meta,
+    progress,
+  });
+
+  $('prepareSplatViewer').disabled = preparing;
+  $('prepareSplatViewer').textContent = failed ? 'Retry full-fidelity viewer build' : 'Build full-fidelity viewer';
   $('openSplatViewer').hidden = !ready;
   $('openSplatViewer').href = ready ? `/viewer/${jobId}` : '#';
 
-  if (status.state === 'preparing' && !viewerAssetTimer) {
+  if (preparing && !viewerAssetTimer) {
     viewerAssetTimer = setInterval(() => refreshViewerAssets(jobId), 2500);
   }
-  if (status.state !== 'preparing') {
+  if (!preparing) {
     clearInterval(viewerAssetTimer);
     viewerAssetTimer = null;
   }
@@ -311,24 +343,12 @@ async function prepareViewerAssets() {
     return;
   }
   $('prepareSplatViewer').disabled = true;
-  $('splatStatus').textContent = 'Queueing full-fidelity splat conversion...';
+  $('splatStatus').innerHTML = renderStageCard({
+    title: 'Queueing full-fidelity viewer',
+    message: 'The app will run SHARP/world.ply if needed, then export the browser .splat asset.',
+  });
 
-  const r = await fetch(`/api/jobs/${activeJobId}/viewer-assets`, { method: 'POST' });
-  const status = await r.json().catch(() => ({ state: 'failed', message: 'Failed to prepare viewer asset.' }));
-  if (!r.ok) {
-    status.state = 'failed';
-  }
-  renderViewerAssetStatus(activeJobId, status);
-}
-
-async function buildWorld() {
-  if (!activeJobId) {
-    return;
-  }
-  $('buildWorld').disabled = true;
-  $('worldStatus').textContent = 'Queueing Gaussian splat world build...';
-
-  const r = await fetch(`/api/jobs/${activeJobId}/world`, {
+  const r = await fetch(`/api/jobs/${activeJobId}/viewer-assets`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -338,16 +358,13 @@ async function buildWorld() {
       merge: true,
     }),
   });
-  const status = await r.json().catch(() => ({ state: 'failed', message: 'Failed to queue world build.' }));
+  const status = await r.json().catch(() => ({ state: 'failed', message: 'Failed to prepare viewer asset.' }));
   if (!r.ok) {
-    $('worldStatus').textContent = typeof status.detail === 'string' ? status.detail : JSON.stringify(status, null, 2);
-    $('buildWorld').disabled = false;
-    return;
+    status.state = 'failed';
+    status.stage = 'failed';
+    status.message = typeof status.detail === 'string' ? status.detail : status.message;
   }
-
-  renderWorldStatus(activeJobId, status);
-  clearInterval(timer);
-  timer = setInterval(() => poll(activeJobId), 2500);
+  renderViewerAssetStatus(activeJobId, status);
 }
 
 async function loadExistingRun(jobId) {
@@ -369,12 +386,19 @@ async function startJob() {
   clearInterval(timer);
   clearPreview();
   $('artifacts').innerHTML = '';
-  $('status').textContent = 'Creating job...';
+  $('status').innerHTML = renderStageCard({
+    title: 'Creating job',
+    message: 'Preparing the panorama request.',
+  });
 
   const sourcePanoramaPath = $('sourcePanoramaPath').value.trim();
   const prompt = $('prompt').value.trim() || (sourcePanoramaPath ? `Imported panorama: ${sourcePanoramaPath.split('/').pop()}` : '');
   if (!prompt) {
-    $('status').textContent = 'Enter a scene prompt or provide an existing panorama path.';
+    $('status').innerHTML = renderStageCard({
+      title: 'Prompt needed',
+      message: 'Enter a scene prompt or provide an existing panorama path.',
+      tone: 'bad',
+    });
     $('start').disabled = false;
     return;
   }
@@ -401,13 +425,17 @@ async function startJob() {
   });
   if (!r.ok) {
     const error = await r.json().catch(() => ({ detail: 'Job creation failed' }));
-    $('status').textContent = typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail, null, 2);
+    $('status').innerHTML = renderStageCard({
+      title: 'Job creation failed',
+      message: typeof error.detail === 'string' ? error.detail : 'Job creation failed.',
+      tone: 'bad',
+    });
     $('start').disabled = false;
     return;
   }
 
   const status = await r.json();
-  $('status').textContent = JSON.stringify(status, null, 2);
+  renderJobStatus(status);
   timer = setInterval(() => poll(status.id), 2500);
   poll(status.id);
 }
@@ -442,7 +470,6 @@ function bindReferenceInputs() {
 
 function bindEvents() {
   $('start').onclick = startJob;
-  $('buildWorld').onclick = buildWorld;
   $('prepareSplatViewer').onclick = prepareViewerAssets;
   $('loadRun').onclick = async () => {
     try {

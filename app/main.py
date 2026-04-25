@@ -128,12 +128,16 @@ def get_viewer_assets(job_id: str) -> dict:
 
 
 @app.post("/api/jobs/{job_id}/viewer-assets", response_model=ViewerAssetStatus)
-def prepare_viewer_assets(job_id: str, background_tasks: BackgroundTasks) -> dict:
+def prepare_viewer_assets(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    req: BuildWorldRequest | None = None,
+) -> dict:
     try:
         read_status(job_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Job not found") from None
-    return start_viewer_asset_job(job_id, background_tasks)
+    return start_viewer_asset_job(job_id, background_tasks, req)
 
 
 @app.get("/api/jobs/{job_id}/files/{path:path}")

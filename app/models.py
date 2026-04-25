@@ -53,6 +53,7 @@ class BuildWorldRequest(BaseModel):
 
 class ViewerAssetStatus(BaseModel):
     state: Literal["missing", "preparing", "ready", "failed"]
+    stage: Literal["world", "splat", "ready", "missing", "failed"] = "missing"
     message: str = ""
     artifacts: dict[str, str] = Field(default_factory=dict)
     progress: dict[str, float | int] = Field(default_factory=dict)

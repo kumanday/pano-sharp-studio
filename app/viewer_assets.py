@@ -7,8 +7,10 @@ from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
 
+from .models import BuildWorldRequest
+from .pipeline import run_world_job
 from .splat_export import export_ply_to_splat
-from .store import add_artifact, job_dir
+from .store import add_artifact, job_dir, read_status
 
 VIEWER_DIR_NAME = "viewer"
 SPLAT_REL_PATH = f"{VIEWER_DIR_NAME}/world.splat"
@@ -36,6 +38,10 @@ def _world_ply_path(job_id: str) -> Path:
     return job_dir(job_id) / "world.ply"
 
 
+def _panorama_path(job_id: str) -> Path:
+    return job_dir(job_id) / "panorama.png"
+
+
 def _write_viewer_status(job_id: str, **patch: Any) -> dict[str, Any]:
     path = _status_path(job_id)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -55,6 +61,7 @@ def _ready_status(job_id: str) -> dict[str, Any]:
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     return {
         "state": "ready",
+        "stage": "ready",
         "message": "Full-fidelity splat viewer asset is ready.",
         "artifacts": {
             "viewer_splat": SPLAT_REL_PATH,
@@ -75,13 +82,23 @@ def get_viewer_asset_status(job_id: str) -> dict[str, Any]:
     if _world_ply_path(job_id).exists():
         return {
             "state": "missing",
-            "message": "world.ply exists. Prepare the full-fidelity splat viewer asset when you are ready.",
+            "stage": "splat",
+            "message": "world.ply exists. Build the full-fidelity viewer to export the browser .splat asset.",
+            "artifacts": {},
+        }
+
+    if _panorama_path(job_id).exists():
+        return {
+            "state": "missing",
+            "stage": "world",
+            "message": "Panorama is ready. Build the full-fidelity viewer to run SHARP, merge world.ply, and export .splat.",
             "artifacts": {},
         }
 
     return {
         "state": "missing",
-        "message": "world.ply is not available for this job yet.",
+        "stage": "missing",
+        "message": "panorama.png is not available for this job yet.",
         "artifacts": {},
     }
 
@@ -97,6 +114,7 @@ def build_viewer_assets(job_id: str) -> None:
         _write_viewer_status(
             job_id,
             state="preparing",
+            stage="splat",
             message="Converting world.ply to full-fidelity .splat.",
             artifacts={},
         )
@@ -105,6 +123,7 @@ def build_viewer_assets(job_id: str) -> None:
             _write_viewer_status(
                 job_id,
                 state="preparing",
+                stage="splat",
                 message=(
                     f"Converting world.ply to .splat: {progress['percent']}% "
                     f"({progress['processed']:,}/{progress['total']:,} splats)"
@@ -119,6 +138,7 @@ def build_viewer_assets(job_id: str) -> None:
         _write_viewer_status(
             job_id,
             state="ready",
+            stage="ready",
             message=f"Full-fidelity splat viewer asset is ready ({manifest['asset_bytes']:,} bytes).",
             artifacts={
                 "viewer_splat": SPLAT_REL_PATH,
@@ -133,24 +153,80 @@ def build_viewer_assets(job_id: str) -> None:
         _write_viewer_status(
             job_id,
             state="failed",
+            stage="failed",
             message=str(exc),
             artifacts={"viewer_error": f"{VIEWER_DIR_NAME}/error.txt"},
         )
 
 
-def start_viewer_asset_job(job_id: str, background_tasks: BackgroundTasks) -> dict[str, Any]:
+def build_full_fidelity_viewer(job_id: str, world_req: BuildWorldRequest) -> None:
+    try:
+        if not _world_ply_path(job_id).exists():
+            _write_viewer_status(
+                job_id,
+                state="preparing",
+                stage="world",
+                message="Building Gaussian splat world with Apple SHARP.",
+                artifacts={},
+                progress={},
+            )
+
+            def report(message: str) -> None:
+                _write_viewer_status(
+                    job_id,
+                    state="preparing",
+                    stage="world",
+                    message=message,
+                    artifacts={},
+                    progress={},
+                )
+
+            run_world_job(job_id, world_req, reporter=report)
+            if not _world_ply_path(job_id).exists():
+                status = read_status(job_id)
+                detail = status.get("message") or "World build finished without writing world.ply."
+                raise RuntimeError(detail)
+
+        build_viewer_assets(job_id)
+    except Exception as exc:
+        error_path = _viewer_dir(job_id) / "error.txt"
+        error_path.parent.mkdir(parents=True, exist_ok=True)
+        error_path.write_text(traceback.format_exc())
+        _write_viewer_status(
+            job_id,
+            state="failed",
+            stage="failed",
+            message=str(exc),
+            artifacts={"viewer_error": f"{VIEWER_DIR_NAME}/error.txt"},
+        )
+
+
+def start_viewer_asset_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    world_req: BuildWorldRequest | None = None,
+) -> dict[str, Any]:
     current = get_viewer_asset_status(job_id)
     if current["state"] in {"ready", "preparing"}:
         return current
 
-    if not _world_ply_path(job_id).exists():
-        raise HTTPException(status_code=400, detail="world.ply is not available for this job yet.")
+    if not _world_ply_path(job_id).exists() and not _panorama_path(job_id).exists():
+        raise HTTPException(status_code=400, detail="panorama.png is not available for this job yet.")
+
+    stage = "splat" if _world_ply_path(job_id).exists() else "world"
+    message = (
+        "Queued full-fidelity .splat conversion."
+        if stage == "splat"
+        else "Queued full-fidelity viewer build. SHARP/world.ply will run first, then .splat export."
+    )
 
     status = _write_viewer_status(
         job_id,
         state="preparing",
-        message="Queued full-fidelity .splat conversion.",
+        stage=stage,
+        message=message,
         artifacts={},
+        progress={},
     )
-    background_tasks.add_task(build_viewer_assets, job_id)
+    background_tasks.add_task(build_full_fidelity_viewer, job_id, world_req or BuildWorldRequest())
     return status

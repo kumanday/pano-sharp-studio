@@ -25,12 +25,22 @@ class ViewerAssetsApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["state"], "missing")
+        self.assertEqual(response.json()["stage"], "missing")
 
-    def test_prepare_fails_without_world_ply(self) -> None:
+    def test_missing_with_panorama_can_start_world_stage(self) -> None:
+        (job_dir(self.job_id) / "panorama.png").write_bytes(b"fake")
+
+        response = self.client.get(f"/api/jobs/{self.job_id}/viewer-assets")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["state"], "missing")
+        self.assertEqual(response.json()["stage"], "world")
+
+    def test_prepare_fails_without_panorama(self) -> None:
         response = self.client.post(f"/api/jobs/{self.job_id}/viewer-assets")
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("world.ply", response.json()["detail"])
+        self.assertIn("panorama.png", response.json()["detail"])
 
     def test_ready_asset_is_idempotent(self) -> None:
         viewer_dir = job_dir(self.job_id) / "viewer"
@@ -45,6 +55,7 @@ class ViewerAssetsApiTests(unittest.TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(first.json()["state"], "ready")
         self.assertEqual(second.json()["state"], "ready")
+        self.assertEqual(second.json()["stage"], "ready")
 
     def test_file_traversal_is_blocked(self) -> None:
         response = self.client.get(f"/api/jobs/{self.job_id}/files/../../pyproject.toml")

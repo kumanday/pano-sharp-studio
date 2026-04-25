@@ -236,6 +236,60 @@
       color: #d8e6fb;
       overflow: auto;
     }
+    .stage-status {
+      margin: 0;
+      padding: 16px;
+      border-radius: 18px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      color: #d8e6fb;
+    }
+    .stage-status.good {
+      border-color: rgba(157, 244, 182, 0.28);
+      background: rgba(12, 42, 24, 0.34);
+    }
+    .stage-status.bad {
+      border-color: rgba(255, 152, 152, 0.32);
+      background: rgba(61, 10, 10, 0.34);
+    }
+    .stage-title {
+      color: var(--text);
+      font-weight: 800;
+      font-size: 1.02rem;
+    }
+    .stage-message {
+      margin-top: 6px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .stage-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .stage-meta span {
+      display: inline-flex;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 6px 9px;
+      color: #cfe0f8;
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 0.85rem;
+    }
+    .progress-bar {
+      height: 10px;
+      margin-top: 14px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent));
+      transition: width 180ms ease;
+    }
     a { color: #ffd39c; }
     .artifact {
       padding: 14px 0;
@@ -523,7 +577,10 @@
     <div class="meta">
       <div class="stack">
         <h3 class="card-title">Job Status</h3>
-        <pre id="status">Idle</pre>
+        <div id="status" class="stage-status">
+          <div class="stage-title">Idle</div>
+          <div class="stage-message">Generate or load a panorama to begin.</div>
+        </div>
       </div>
       <div class="stack">
         <h3 class="card-title">Artifacts</h3>
@@ -552,39 +609,27 @@
         </div>
       </div>
     </section>
-    <section id="worldPanel" class="preview" hidden>
-      <div class="viewer-head">
-        <div>
-          <div class="viewer-kicker">Gaussian Splat World</div>
-          <div class="viewer-help">The panorama is the fast checkpoint. Build the SHARP/PLY world manually once the image is worth reconstructing.</div>
-        </div>
-      </div>
-      <div style="padding: 18px;">
-        <pre id="worldStatus">World build not checked yet.</pre>
-        <div class="world-open-note">This stage runs perspective crops through Apple SHARP and merges the resulting PLY files. It can take several minutes.</div>
-        <div class="splat-actions">
-          <button id="buildWorld" type="button">Build Gaussian splat world</button>
-        </div>
-      </div>
-    </section>
     <section id="splatPanel" class="preview" hidden>
       <div class="viewer-head">
         <div>
           <div class="viewer-kicker">Full-Fidelity Gaussian Splat</div>
-          <div class="viewer-help">Prepare a browser-ready `.splat` asset from `world.ply` only after the panorama looks worth keeping.</div>
+          <div class="viewer-help">One action runs SHARP/world.ply if needed, then exports the browser-ready `.splat` viewer asset.</div>
         </div>
       </div>
       <div style="padding: 18px;">
-        <pre id="splatStatus">Viewer asset not checked yet.</pre>
+        <div id="splatStatus" class="stage-status">
+          <div class="stage-title">Waiting for panorama</div>
+          <div class="stage-message">Generate or load a panorama first, then build the full-fidelity viewer.</div>
+        </div>
         <div class="splat-warning">Full-fidelity means no decimation. Large worlds can create hundreds of MB of viewer data and may take time to load.</div>
         <div class="splat-actions">
-          <button id="prepareSplatViewer" type="button">Prepare full-fidelity splat viewer</button>
+          <button id="prepareSplatViewer" type="button">Build full-fidelity viewer</button>
           <a id="openSplatViewer" class="splat-open-link" href="#" target="_blank" rel="noreferrer" hidden>Open full-fidelity splat viewer</a>
         </div>
       </div>
     </section>
   </section>
 </main>
-<script type="module" src="/static/app.js?v=2"></script>
+<script type="module" src="/static/app.js?v=3"></script>
 </body>
 </html>
