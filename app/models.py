@@ -43,6 +43,14 @@ class JobStatus(BaseModel):
     artifacts: dict[str, str] = Field(default_factory=dict)
 
 
+class ViewerAssetStatus(BaseModel):
+    state: Literal["missing", "preparing", "ready", "failed"]
+    message: str = ""
+    artifacts: dict[str, str] = Field(default_factory=dict)
+    progress: dict[str, float | int] = Field(default_factory=dict)
+    manifest: dict[str, str | int | float] = Field(default_factory=dict)
+
+
 class SetupCheck(BaseModel):
     name: str
     ok: bool

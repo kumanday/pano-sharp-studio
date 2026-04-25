@@ -9,10 +9,11 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .job_forms import build_form_request
-from .models import CreateJobRequest, JobStatus, SetupStatus
+from .models import CreateJobRequest, JobStatus, SetupStatus, ViewerAssetStatus
 from .pipeline import run_job
 from .runtime import get_setup_status
 from .store import init_job, job_dir, read_status
+from .viewer_assets import get_viewer_asset_status, start_viewer_asset_job
 
 app = FastAPI(title="Pano Sharp Studio", version="0.2.0")
 
@@ -35,6 +36,11 @@ def _safe_job_file(job_id: str, rel_path: str) -> Path:
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return (STATIC_DIR / "index.html").read_text()
+
+
+@app.get("/viewer/{job_id}", response_class=HTMLResponse)
+def splat_viewer(job_id: str) -> str:
+    return (STATIC_DIR / "splat-viewer.html").read_text()
 
 
 @app.get("/api/setup", response_model=SetupStatus)
@@ -92,6 +98,24 @@ def get_job(job_id: str) -> dict:
         return read_status(job_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Job not found") from None
+
+
+@app.get("/api/jobs/{job_id}/viewer-assets", response_model=ViewerAssetStatus)
+def get_viewer_assets(job_id: str) -> dict:
+    try:
+        read_status(job_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    return get_viewer_asset_status(job_id)
+
+
+@app.post("/api/jobs/{job_id}/viewer-assets", response_model=ViewerAssetStatus)
+def prepare_viewer_assets(job_id: str, background_tasks: BackgroundTasks) -> dict:
+    try:
+        read_status(job_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    return start_viewer_asset_job(job_id, background_tasks)
 
 
 @app.get("/api/jobs/{job_id}/files/{path:path}")

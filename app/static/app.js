@@ -5,6 +5,8 @@ let panoramaViewer = null;
 let activePanoramaUrl = null;
 let panoramaLoadPromise = null;
 let referenceFiles = [];
+let activeJobId = null;
+let viewerAssetTimer = null;
 
 const viewerModulePromise = import('/static/panorama-viewer.js?v=4');
 
@@ -116,6 +118,17 @@ function clearPreview() {
   $('viewerError').hidden = true;
   $('viewerError').textContent = '';
   $('preview').hidden = true;
+  clearViewerAssetPanel();
+}
+
+function clearViewerAssetPanel() {
+  clearInterval(viewerAssetTimer);
+  viewerAssetTimer = null;
+  $('splatPanel').hidden = true;
+  $('splatStatus').textContent = 'Viewer asset not checked yet.';
+  $('prepareSplatViewer').disabled = false;
+  $('openSplatViewer').hidden = true;
+  $('openSplatViewer').href = '#';
 }
 
 async function renderPanoramaViewer(jobId, relPath) {
@@ -180,6 +193,7 @@ async function poll(jobId) {
   }
 
   const status = await r.json();
+  activeJobId = jobId;
   $('existingJobId').value = jobId;
   setRunUrl(jobId);
   $('status').textContent = JSON.stringify(status, null, 2);
@@ -195,6 +209,12 @@ async function poll(jobId) {
     clearPreview();
   }
 
+  if (artifacts.world_ply) {
+    await refreshViewerAssets(jobId);
+  } else {
+    clearViewerAssetPanel();
+  }
+
   if (status.state === 'complete' || status.state === 'failed') {
     clearInterval(timer);
     $('start').disabled = false;
@@ -202,6 +222,47 @@ async function poll(jobId) {
   }
 
   return status;
+}
+
+function renderViewerAssetStatus(jobId, status) {
+  $('splatPanel').hidden = false;
+  $('splatStatus').textContent = JSON.stringify(status, null, 2);
+  $('prepareSplatViewer').disabled = status.state === 'preparing';
+
+  const ready = status.state === 'ready' && status.artifacts?.viewer_splat;
+  $('openSplatViewer').hidden = !ready;
+  $('openSplatViewer').href = ready ? `/viewer/${jobId}` : '#';
+
+  if (status.state === 'preparing' && !viewerAssetTimer) {
+    viewerAssetTimer = setInterval(() => refreshViewerAssets(jobId), 2500);
+  }
+  if (status.state !== 'preparing') {
+    clearInterval(viewerAssetTimer);
+    viewerAssetTimer = null;
+  }
+}
+
+async function refreshViewerAssets(jobId) {
+  const r = await fetch(`/api/jobs/${jobId}/viewer-assets`);
+  if (!r.ok) {
+    return;
+  }
+  renderViewerAssetStatus(jobId, await r.json());
+}
+
+async function prepareViewerAssets() {
+  if (!activeJobId) {
+    return;
+  }
+  $('prepareSplatViewer').disabled = true;
+  $('splatStatus').textContent = 'Queueing full-fidelity splat conversion...';
+
+  const r = await fetch(`/api/jobs/${activeJobId}/viewer-assets`, { method: 'POST' });
+  const status = await r.json().catch(() => ({ state: 'failed', message: 'Failed to prepare viewer asset.' }));
+  if (!r.ok) {
+    status.state = 'failed';
+  }
+  renderViewerAssetStatus(activeJobId, status);
 }
 
 async function loadExistingRun(jobId) {
@@ -295,6 +356,7 @@ function bindReferenceInputs() {
 
 function bindEvents() {
   $('start').onclick = startJob;
+  $('prepareSplatViewer').onclick = prepareViewerAssets;
   $('loadRun').onclick = async () => {
     try {
       await loadExistingRun($('existingJobId').value);

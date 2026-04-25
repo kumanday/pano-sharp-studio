@@ -69,6 +69,13 @@ uv run uvicorn app.main:app --reload --port 8080
 
 Open `http://localhost:8080`.
 
+If you change the Gaussian splat viewer frontend, rebuild the Vite bundle:
+
+```bash
+npm install
+npm run build
+```
+
 ### 4. Run from the CLI
 
 ```bash
@@ -107,6 +114,15 @@ Instead, this app:
 4. Run `sharp predict -i runs/<job>/faces -o runs/<job>/sharp_plys`.
 5. Merge the per-face PLY files into `runs/<job>/world.ply`.
 6. Download the panorama, face manifest, per-face PLYs, and merged PLY from the UI.
+7. Optionally prepare a full-fidelity browser `.splat` asset from `world.ply` and open the fullscreen Gaussian splat viewer.
+
+## Full-fidelity splat viewer
+
+The main page keeps the 360 panorama viewer as the fast preview. When a completed job has `world.ply`, use **Prepare full-fidelity splat viewer** to manually convert it to `runs/<job>/viewer/world.splat`.
+
+This conversion preserves every splat; it does not decimate. Large worlds are therefore intentionally heavy. The sample `e3710d02dc37` run has `15,572,577` splats and exports to an approximately `498 MB` `.splat` file.
+
+The viewer frontend is built with Vite from `frontend/splat-viewer.js` and uses `@mkkellogg/gaussian-splats-3d` plus `three`. The built bundle is served from `app/static/dist/splat-viewer.js`; do not vendor Three.js manually.
 
 ## OpenAI image settings
 

@@ -8,6 +8,8 @@ from typing import Any
 import numpy as np
 from plyfile import PlyData, PlyElement
 
+from .splat_export import quaternion_wxyz_to_xyzw, quaternion_xyzw_to_wxyz
+
 
 def _quat_from_matrix(R: np.ndarray) -> np.ndarray:
     """Return quaternion [w, x, y, z] from a 3x3 rotation matrix."""
@@ -126,11 +128,13 @@ def merge_sharp_plys(
 
         rot_names = ["rot_0", "rot_1", "rot_2", "rot_3"]
         if all(name in vertex.dtype.names for name in rot_names):
-            q_cam = np.stack([vertex[n] for n in rot_names], axis=-1).astype(np.float64)
+            q_cam_xyzw = np.stack([vertex[n] for n in rot_names], axis=-1).astype(np.float64)
+            q_cam = quaternion_xyzw_to_wxyz(q_cam_xyzw)
             q_R = _quat_from_matrix(R)[None, :]
             q_world = _quat_mul(np.repeat(q_R, len(q_cam), axis=0), q_cam)
+            q_world_xyzw = quaternion_wxyz_to_xyzw(q_world)
             for j, n in enumerate(rot_names):
-                vertex[n] = q_world[:, j]
+                vertex[n] = q_world_xyzw[:, j]
 
         merged_vertices.append(vertex)
 
