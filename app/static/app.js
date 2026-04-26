@@ -8,6 +8,7 @@ let referenceFiles = [];
 let activeJobId = null;
 let viewerAssetTimer = null;
 let immersiveViewer = null;
+let scenePendingDelete = null;
 
 const viewerModulePromise = import('/static/panorama-viewer.js?v=4');
 const splatViewerModulePromise = import('/static/dist/splat-viewer.js?v=4');
@@ -85,9 +86,18 @@ function renderScenes(scenes) {
   }
 
   $('sceneGrid').innerHTML = scenes.map((scene) => `
-    <button class="scene-card" type="button" data-scene-viewer="${escapeHtml(scene.viewer_url)}" aria-label="Open high-fidelity render ${escapeHtml(scene.id)}">
-      <img src="/api/jobs/${encodeURIComponent(scene.id)}/files/${encodeURIComponent(scene.thumbnail)}" alt="" loading="lazy" />
-    </button>
+    <div class="scene-card">
+      <button class="scene-open" type="button" data-scene-viewer="${escapeHtml(scene.viewer_url)}" aria-label="Open high-fidelity render ${escapeHtml(scene.id)}">
+        <img src="/api/jobs/${encodeURIComponent(scene.id)}/files/${encodeURIComponent(scene.thumbnail)}" alt="" loading="lazy" />
+      </button>
+      <button class="scene-delete" data-delete-scene="${escapeHtml(scene.id)}" type="button" aria-label="Delete scene ${escapeHtml(scene.id)}">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 7h16" stroke-width="2" stroke-linecap="round"/>
+          <path d="M10 11v6M14 11v6" stroke-width="2" stroke-linecap="round"/>
+          <path d="M6 7l1 14h10l1-14M9 7V4h6v3" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
   `).join('');
 }
 
@@ -98,6 +108,47 @@ async function loadScenes() {
     return;
   }
   renderScenes(await r.json());
+}
+
+async function deleteScene(jobId) {
+  $('confirmDeleteScene').disabled = true;
+  $('deleteSceneError').hidden = true;
+  $('deleteSceneError').textContent = '';
+  const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, { method: 'DELETE' });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Delete failed' }));
+    $('deleteSceneError').textContent = typeof error.detail === 'string' ? error.detail : 'Delete failed.';
+    $('deleteSceneError').hidden = false;
+    $('confirmDeleteScene').disabled = false;
+    return;
+  }
+  if (activeJobId === jobId) {
+    activeJobId = null;
+    clearPreview();
+    $('artifacts').innerHTML = '';
+    $('status').innerHTML = renderStageCard({
+      title: 'Scene deleted',
+      message: 'The run data was removed from disk.',
+      tone: 'good',
+    });
+  }
+  closeDeleteSceneModal();
+  await loadScenes();
+}
+
+function openDeleteSceneModal(jobId) {
+  scenePendingDelete = jobId;
+  $('deleteSceneError').hidden = true;
+  $('deleteSceneError').textContent = '';
+  $('confirmDeleteScene').disabled = false;
+  $('deleteSceneModal').hidden = false;
+  $('confirmDeleteScene').focus({ preventScroll: true });
+}
+
+function closeDeleteSceneModal() {
+  scenePendingDelete = null;
+  $('deleteSceneModal').hidden = true;
+  $('confirmDeleteScene').disabled = false;
 }
 
 function renderReferenceFiles() {
@@ -559,11 +610,29 @@ function bindEvents() {
     }
   });
   $('sceneGrid').onclick = (event) => {
+    const deleteButton = event.target.closest('[data-delete-scene]');
+    if (deleteButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      openDeleteSceneModal(deleteButton.dataset.deleteScene);
+      return;
+    }
     const card = event.target.closest('[data-scene-viewer]');
     if (!card) {
       return;
     }
     openImmersiveViewer(card.dataset.sceneViewer.split('/').pop()).catch((error) => console.error(error));
+  };
+  $('cancelDeleteScene').onclick = closeDeleteSceneModal;
+  $('deleteSceneModal').onclick = (event) => {
+    if (event.target === $('deleteSceneModal')) {
+      closeDeleteSceneModal();
+    }
+  };
+  $('confirmDeleteScene').onclick = () => {
+    if (scenePendingDelete) {
+      deleteScene(scenePendingDelete).catch((error) => console.error(error));
+    }
   };
   $('openSplatViewer').onclick = () => {
     const jobId = $('openSplatViewer').dataset.jobId || activeJobId;

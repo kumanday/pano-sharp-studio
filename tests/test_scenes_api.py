@@ -43,6 +43,22 @@ class ScenesApiTests(unittest.TestCase):
         self.assertEqual(scene["viewer_url"], f"/viewer/{self.job_id}")
         self.assertEqual(scene["manifest"]["splat_count"], 2)
 
+    def test_delete_job_removes_run_data(self) -> None:
+        run_dir = job_dir(self.job_id)
+        (run_dir / "panorama.png").write_bytes(b"fake")
+
+        response = self.client.delete(f"/api/jobs/{self.job_id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(run_dir.exists())
+
+    def test_delete_job_rejects_missing_run(self) -> None:
+        shutil.rmtree(job_dir(self.job_id), ignore_errors=True)
+
+        response = self.client.delete(f"/api/jobs/{self.job_id}")
+
+        self.assertEqual(response.status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()

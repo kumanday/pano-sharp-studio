@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -49,3 +50,14 @@ def list_high_fidelity_scenes() -> list[dict[str, Any]]:
         })
 
     return scenes
+
+
+def delete_run(job_id: str) -> None:
+    run_dir = (RUNS_DIR / job_id).resolve()
+    try:
+        run_dir.relative_to(RUNS_DIR.resolve())
+    except ValueError:
+        raise FileNotFoundError(job_id) from None
+    if not run_dir.exists() or not run_dir.is_dir():
+        raise FileNotFoundError(job_id)
+    shutil.rmtree(run_dir)

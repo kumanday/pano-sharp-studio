@@ -184,20 +184,26 @@
       gap: 12px;
     }
     .scene-card {
-      display: block;
-      width: 100%;
-      margin: 0;
+      position: relative;
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 18px;
       padding: 8px;
-      color: var(--text);
       background: rgba(4, 10, 20, 0.56);
-      box-shadow: none;
-      line-height: 0;
     }
     .scene-card:hover {
       border-color: rgba(255, 211, 156, 0.42);
       transform: translateY(-1px);
+    }
+    .scene-open {
+      display: block;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      box-shadow: none;
+      line-height: 0;
     }
     .scene-card img {
       width: 100%;
@@ -205,6 +211,35 @@
       border-radius: 12px;
       object-fit: cover;
       background: #040a14;
+    }
+    .scene-delete {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      margin: 0;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      padding: 0;
+      color: #ffe4e4;
+      background: rgba(61, 10, 10, 0.72);
+      box-shadow: none;
+      opacity: 0;
+      line-height: 0;
+      transition: opacity 140ms ease;
+    }
+    .scene-card:hover .scene-delete,
+    .scene-delete:focus {
+      opacity: 1;
+    }
+    .scene-delete svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
     }
     .check {
       border: 1px solid var(--line);
@@ -608,6 +643,60 @@
     .immersive-root:active {
       cursor: grabbing;
     }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(2, 6, 13, 0.72);
+      backdrop-filter: blur(8px);
+    }
+    .modal-backdrop[hidden] {
+      display: none !important;
+    }
+    .modal-card {
+      width: min(460px, 100%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 22px;
+      padding: 22px;
+      background: rgba(9, 18, 31, 0.96);
+      box-shadow: var(--shadow);
+    }
+    .modal-card h3 {
+      margin: 0 0 8px;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", ui-serif, serif;
+      font-size: 1.55rem;
+      letter-spacing: -0.03em;
+    }
+    .modal-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .modal-error {
+      margin-top: 12px;
+      color: #ffe4e4;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .modal-actions button {
+      min-height: 50px;
+      margin: 0;
+      border-radius: 999px;
+      padding: 0 22px;
+      line-height: 1;
+    }
+    .danger-button {
+      color: #ffe4e4;
+      background: linear-gradient(135deg, #802828, #c94d4d);
+      box-shadow: none;
+    }
     .splat-warning {
       margin-top: 12px;
       border: 1px solid rgba(255, 176, 103, 0.24);
@@ -788,6 +877,17 @@
 </main>
 <div id="immersiveOverlay" class="immersive-overlay" hidden>
   <div id="immersiveRoot" class="immersive-root" tabindex="0"></div>
+</div>
+<div id="deleteSceneModal" class="modal-backdrop" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="deleteSceneTitle">
+    <h3 id="deleteSceneTitle">Delete scene?</h3>
+    <p>This removes the run data from disk, including the preview, high-fidelity render, and generated files.</p>
+    <div id="deleteSceneError" class="modal-error" hidden></div>
+    <div class="modal-actions">
+      <button id="cancelDeleteScene" class="secondary-button" type="button">Cancel</button>
+      <button id="confirmDeleteScene" class="danger-button" type="button">Delete scene</button>
+    </div>
+  </div>
 </div>
 <script type="module" src="/static/app.js?v=3"></script>
 </body>

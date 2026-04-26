@@ -12,7 +12,7 @@ from .job_forms import build_form_request
 from .models import BuildWorldRequest, CreateJobRequest, JobState, JobStatus, SceneSummary, SetupStatus, ViewerAssetStatus
 from .pipeline import run_job, run_world_job
 from .runtime import get_setup_status
-from .scenes import list_high_fidelity_scenes
+from .scenes import delete_run, list_high_fidelity_scenes
 from .store import init_job, job_dir, read_status, write_status
 from .viewer_assets import get_viewer_asset_status, start_viewer_asset_job
 
@@ -106,6 +106,15 @@ def get_job(job_id: str) -> dict:
         return read_status(job_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Job not found") from None
+
+
+@app.delete("/api/jobs/{job_id}")
+def delete_job(job_id: str) -> dict[str, str]:
+    try:
+        delete_run(job_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    return {"state": "deleted"}
 
 
 @app.post("/api/jobs/{job_id}/world", response_model=JobStatus)
